@@ -71,6 +71,16 @@
             break;
         }
             
+        case JHHardlineBreakElement: {
+            [self.htmlString appendString:@"<br>"];
+            break;
+        }
+            
+        case JHParagraphElement: {
+            [self.htmlString appendString:@"<p>"];
+            break;
+        }
+            
         default:
             break;
     }

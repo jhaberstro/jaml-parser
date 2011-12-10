@@ -3,13 +3,17 @@ _emphasized_
 ~strong!~ 
 * ul1 
 * _ul2-em_ 
-	* ~inside1-strong~ 
-	* inside2 
+    * ~inside1-strong~ 
+    * inside2 
+        paragraph1
+        
+        line
+        
+        paragraph2
 * ul3 
 ----
 1. ol1 
 2. ol2
-
 `int main()`
 
 _
@@ -24,4 +28,4 @@ multiple
 lines
 ~
 
-("link" www.google.com)
+(www.google.com)

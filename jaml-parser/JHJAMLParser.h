@@ -28,7 +28,9 @@ enum {
     JHUnorderedListElement,
     JHHeaderElement,
     JHInlineCodeElement,
-    JHLinkElement
+    JHLinkElement,
+    JHHardlineBreakElement,
+    JHParagraphElement
 };
 typedef NSUInteger JHElement;
 
@@ -49,6 +51,7 @@ typedef NSUInteger JHElement;
     NSMutableArray* _listDepthStack;
     NSMutableArray* _symbolStack;
     int _oldIndent;
+    BOOL _previousLineEmpty;
 }
 
 - (void)parseJAML:(NSString *)markdownText;
