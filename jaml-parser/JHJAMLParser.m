@@ -54,9 +54,9 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
     }
 }
 
-
 @interface JHJAMLParser ()
 - (void)_consumeHeader:(NSString *)line;
+- (NSUInteger)_consumeLink:(NSString *)line;
 - (NSString *)_parseLine:(NSString *)line;
 @end
 
@@ -110,6 +110,41 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
     [self.delegate processText:[self _parseLine:contents]];
     [self.delegate didEndElement:JHHeaderElement info:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:strength] forKey:JHHeaderStrength]];
 }
+
+- (NSUInteger)_consumeLink:(NSString *)line
+{
+    NSString* regex = @"\".*\" (.*)"; // why does this include the closing ')'?
+    NSRange range = [line rangeOfString:regex options:NSRegularExpressionSearch];
+    if (range.length == 0) {
+        return 0;
+    }
+    
+    range.length -= 1;
+    NSRange nameRange = [line rangeOfString:@"\".*\"" options:NSRegularExpressionSearch range:range];
+    if (nameRange.length <= 2) {
+        [NSException raise:@"JAMLLinkElementException" format:@"Link element's name's quotation marks surround empty string."];
+        return 0;
+    }
+    
+    NSRange urlRange = {
+        .location = nameRange.location + nameRange.length + 1,
+        .length = range.length - (nameRange.length + 1)
+    };
+    if (urlRange.length == 0) {
+        return 0;
+    }
+    
+    // adjust name range to exclude quotation marks
+    nameRange.location += 1;
+    nameRange.length -= 2;
+    
+    [self.delegate didBeginElement:JHLinkElement info:[NSDictionary dictionaryWithObject:[line substringWithRange:urlRange] forKey:JHLinkURL]];
+    [self.delegate processText:[self _parseLine:[line substringWithRange:nameRange]]];
+    [self.delegate didEndElement:JHLinkElement info:nil];
+    
+    return range.location + range.length + 1;
+};
+
 
 - (NSString *)_parseLine:(NSString *)line
 {
@@ -184,6 +219,14 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
                         element = JHHeaderElement;
                         break;
                         
+                    case '`':
+                        element = JHInlineCodeElement;
+                        break;
+                    
+                    case '(':
+                        element = JHLinkElement;
+                        break;
+                        
                     default:
                         break;
                 }
@@ -192,6 +235,15 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
                     if (element == JHHeaderElement) {
                         [self _consumeHeader:[line substringFromIndex:c]];
                         c = length;
+                    }
+                    else if (element == JHLinkElement) {
+                        NSUInteger linkLength = [self _consumeLink:[line substringFromIndex:c]];
+                        if (linkLength > 0) {
+                            c += linkLength;
+                        }
+                        else {
+                            [text appendFormat:@"%c", [line characterAtIndex:c], nil];
+                        }
                     }
                     else {
                         JHElement top = [[_symbolStack lastObject] intValue];

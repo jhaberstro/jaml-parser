@@ -14,6 +14,7 @@
 //  @ will denote ordered list
 //  * will denote unordered list
 //  --- (or more) denote horizontal rule
+//  `inline code`
 //
 
 #import <Foundation/Foundation.h>
@@ -25,18 +26,21 @@ enum {
     JHStrongElement,
     JHOrderedListElement,
     JHUnorderedListElement,
-    JHHeaderElement
+    JHHeaderElement,
+    JHInlineCodeElement,
+    JHLinkElement
 };
 typedef NSUInteger JHElement;
 
 #define JHHeaderStrength @"JHHeaderStrength"
+#define JHLinkURL        @"JHLinkURL"
 
 @protocol JHJAMLParserDelegate <NSObject>
 
-- (void)didBeginElement:(JHElement)element info:(NSDictionary *)info;
 - (void)willParseListItem:(JHElement)element indent:(NSUInteger)indent;
-- (void)processText:(NSString *)text;
 - (void)didParseHorizontalRule;
+- (void)didBeginElement:(JHElement)element info:(NSDictionary *)info;
+- (void)processText:(NSString *)text;
 - (void)didEndElement:(JHElement)element info:(NSDictionary *)info;
 
 @end

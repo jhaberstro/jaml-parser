@@ -9,3 +9,19 @@ _emphasized_
 ----
 1. ol1 
 2. ol2
+
+`int main()`
+
+_
+emphasize
+multiple
+lines
+_
+
+~
+bold
+multiple
+lines
+~
+
+("link" www.google.com)

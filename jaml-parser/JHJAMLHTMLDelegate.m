@@ -60,6 +60,17 @@
             break;
         }
             
+        case JHInlineCodeElement: {
+            [self.htmlString appendString:@"<code>"];
+            break;
+        }
+            
+        case JHLinkElement: {
+            NSString* url = [info objectForKey:JHLinkURL];
+            [self.htmlString appendFormat:@"<a href=\"%@\">", url, nil];
+            break;
+        }
+            
         default:
             break;
     }
@@ -103,6 +114,17 @@
             [self.htmlString appendFormat:@"</h%i>", [[info objectForKey:JHHeaderStrength] intValue], nil];
             break;
         }
+            
+        case JHInlineCodeElement: {
+            [self.htmlString appendFormat:@"</code>"];
+            break;
+        }
+            
+        case JHLinkElement: {
+            [self.htmlString appendString:@"</a>"];
+            break;
+        }
+            
         default:
             break;
     }
