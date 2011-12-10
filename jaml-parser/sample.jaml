@@ -1,0 +1,11 @@
+## ~^header^~
+~emphasized~
+^strong!^ 
+* ul1 
+* ~ul2-em~ 
+	* ^inside1-strong^ 
+	* inside2 
+* ul3 
+----
+@ ol1 
+@ ol2
