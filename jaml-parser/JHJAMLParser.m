@@ -6,17 +6,15 @@
 //  Copyright (c) 2011 Student. All rights reserved.
 //
 
-// TODO - hyperlinks, escape characters (\#, \*, \^, \@) 
+// TODO - hyperlinks, escape characters (\#, \*, \~, \_) 
 
 #import "JHJAMLParser.h"
 
 static BOOL IsHorizontalRule(NSString *text) {
-    // validate length requirement
     if ([text length] < 3) {
         return NO;
     }
     
-    // validate all dashes
     for (NSUInteger i = 0; i < [text length]; ++i) {
         if ([text characterAtIndex:i] != '-') {
             return NO;
@@ -26,12 +24,26 @@ static BOOL IsHorizontalRule(NSString *text) {
     return YES;
 }
 
-static BOOL IsEmpty(NSString *text) {
-    return [text rangeOfCharacterFromSet:[NSCharacterSet whitespaceCharacterSet]].length == [text length];
-}
-
-static BOOL IsDigit(unichar character) {
-    return character >= '0' && character <= '9';
+static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInteger* length) {
+    NSRange periodIndex = [line rangeOfString:@". "];
+    if (periodIndex.length == 0) {
+        return NO;
+    }
+    
+    NSNumberFormatter* numberFormatter = [[NSNumberFormatter alloc] init];
+    [numberFormatter setAllowsFloats:NO];
+    NSString* proposedNumber = [line substringToIndex:periodIndex.location];
+    NSNumber* number = [numberFormatter numberFromString:proposedNumber];
+    if (number == nil) {
+        return NO;
+    }
+    
+    if ([number intValue] < 0) {
+        return NO;
+    }
+    
+    *length = [proposedNumber length] + 2;
+    return YES;
 }
 
 static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
@@ -41,6 +53,7 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
         func(object);
     }
 }
+
 
 @interface JHJAMLParser ()
 - (void)_consumeHeader:(NSString *)line;
@@ -120,7 +133,8 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
             unichar character = [line characterAtIndex:c];
             
             // check ordered lists
-            if (character == '@' && c == startIndex) {
+            NSUInteger orderedListSymbolLength = 0;
+            if (StartsWithOrderedList(line, c, &orderedListSymbolLength) && c == startIndex) {
                 if ([_listDepthStack count] && indent < _oldIndent) {
                     NSNumber* listType = [_listDepthStack lastObject];
                     [_listDepthStack removeLastObject];
@@ -133,6 +147,7 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
                 }
                 
                 [self.delegate willParseListItem:JHOrderedListElement indent:indent];
+                c += orderedListSymbolLength - 1;
             }
             // check unordered list
             else if (character == '*' && c == startIndex) {
@@ -157,11 +172,11 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
                 
                 JHElement element = JHNullElement;
                 switch (character) {
-                    case '~':
+                    case '_':
                         element = JHEmphasizeElement;
                         break;
                         
-                    case '^':
+                    case '~':
                         element = JHStrongElement;
                         break;
                         

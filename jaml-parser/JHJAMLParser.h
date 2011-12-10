@@ -7,8 +7,8 @@
 //
 //
 // Rules
-//  ~emphasize~   
-//  ^strong^  
+//  _emphasize_   
+//  ~strong~
 //  ("link" www.google.com)  
 //  headers are the same as markdown
 //  @ will denote ordered list
