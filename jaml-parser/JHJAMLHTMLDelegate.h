@@ -12,7 +12,6 @@
 @interface JHJAMLHTMLDelegate : NSObject< JHJAMLParserDelegate >
 
 - (void)didBeginElement:(JHElement)element info:(NSDictionary *)info;
-- (void)willParseListItem:(JHElement)element indent:(NSUInteger)indent;
 - (void)processText:(NSString *)text;
 - (void)didParseHorizontalRule;
 - (void)didEndElement:(JHElement)element info:(NSDictionary *)info;

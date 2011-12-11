@@ -46,18 +46,6 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
     return YES;
 }
 
-static BOOL IsEmpty(NSString* line) {
-    char const* cString = [line UTF8String];
-    NSUInteger length = [line length];
-    for (NSUInteger i = 0; i < length; ++i) {
-        if (cString[i] != ' ' && cString[i] != '\t') {
-            return NO;
-        }
-    }
-    
-    return YES;
-}
-
 static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
     while ([stack count]) {
         id object = [stack lastObject];
@@ -69,16 +57,19 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
 @interface _ListState : NSObject
 @property (assign) JHElement type;
 @property (assign) int indent;
+@property (assign) int numberOfListElements;
 @end
 
 @implementation _ListState
 @synthesize type;
 @synthesize indent;
+@synthesize numberOfListElements;
 @end
 
 @interface JHJAMLParser ()
 - (void)_consumeHeader:(NSString *)line;
 - (NSUInteger)_consumeLink:(NSString *)line;
+- (void)_processListItem:(JHElement)listType indent:(int)indent;
 - (NSString *)_parseLine:(NSString *)line;
 @end
 
@@ -89,6 +80,10 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
 + (void)_unrollListStack:(NSMutableArray *)listStack delegate:(id< JHJAMLParserDelegate >)delegate
 {
     UnrollStack(listStack, ^(_ListState* state) {
+        if (state.numberOfListElements > 0) {
+            [delegate didEndElement:JHListItemElement info:nil];
+        }
+        
         if (state.type == JHOrderedListElement)
             [delegate didEndElement:JHOrderedListElement info:nil];
         else if (state.type == JHUnorderedListElement)
@@ -168,6 +163,35 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
     return range.location + range.length + 1;
 };
 
+- (void)_processListItem:(JHElement)listType indent:(int)indent
+{
+    if ([_listDepthStack count] && indent < _oldIndent) {
+        _ListState* state = [_listDepthStack lastObject];
+        if (state.numberOfListElements > 0) {
+            assert(state.indent >= indent);
+            [self.delegate didEndElement:JHListItemElement info:nil];
+        }
+        
+        [_listDepthStack removeLastObject];
+        [self.delegate didEndElement:state.type info:nil];
+    }
+    
+    if ([_listDepthStack count] == 0 || indent > _oldIndent) {
+        [self.delegate didBeginElement:JHOrderedListElement info:nil];
+        _ListState* state = [[_ListState alloc] init];
+        state.type = JHOrderedListElement;
+        state.indent = indent;
+        [_listDepthStack addObject:state];
+    }
+    
+    _ListState* currentList = [_listDepthStack lastObject];
+    if (currentList.numberOfListElements > 0 && currentList.indent == indent && currentList.type == JHOrderedListElement) {
+        [self.delegate didEndElement:JHListItemElement info:nil];
+    }
+    
+    [self.delegate didBeginElement:JHListItemElement info:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:indent] forKey:JHListIndent]];
+    currentList.numberOfListElements += 1;
+}
 
 - (NSString *)_parseLine:(NSString *)line
 {
@@ -175,74 +199,55 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
     NSMutableString* text = [NSMutableString string];
     NSUInteger length = [line length];
     char const* lineString = [line UTF8String];
+    NSUInteger c = 0;
+    
+    // Consume all leading whitespace
+    int indent = 0;
+    int spaces = 0;
+    while (c < length && (lineString[c] == '\t' || lineString[c] == ' ')) {
+        if (lineString[c] == 't') {
+            spaces += 4;
+            indent += 1;
+        }
+        else {
+            spaces += 1;
+            if (spaces % 4 == 0) {
+                indent += 1;
+            }
+        }
+        
+        ++c;
+    }
+    
+    // test for empty line
+    if (length == 0 || c == length) {
+        [self.delegate didBeginElement:JHParagraphElement info:nil];
+        _previousLineEmpty = YES;
+        return text;
+    }
+    
     if (IsHorizontalRule(lineString, length)) {
         [JHJAMLParser _unrollListStack:_listDepthStack delegate:self.delegate];
         [self.delegate didParseHorizontalRule];
     }
     else {
-        int indent = 0;
-        int spaces = 0;
-        NSUInteger c = 0;
-        // Consume all leading whitespace
-        while (c < length && (lineString[c] == '\t' || lineString[c] == ' ')) {
-            if (lineString[c] == 't') {
-                spaces += 4;
-                indent += 1;
-            }
-            else {
-                spaces += 1;
-                if (spaces % 4 == 0) {
-                    indent += 1;
-                }
-            }
-            
-            ++c;
-        }
-        
         NSUInteger startIndex = c;
         for (; c < length; ++c) {
-            unichar character = lineString[c];
-            
-            // check ordered lists
-            NSUInteger orderedListSymbolLength = 0;
-            if (c == startIndex && StartsWithOrderedList(line, c, &orderedListSymbolLength)) {
-                if ([_listDepthStack count] && indent < _oldIndent) {
-                    _ListState* state = [_listDepthStack lastObject];
-                    [_listDepthStack removeLastObject];
-                    [self.delegate didEndElement:state.type info:nil];
+            unichar character = lineString[c];            
+            if (c == startIndex) {
+                // check ordered lists
+                NSUInteger orderedListSymbolLength = 0;
+                if (StartsWithOrderedList(line, c, &orderedListSymbolLength)) {
+                    [self _processListItem:JHOrderedListElement indent:indent];
+                    c += orderedListSymbolLength - 1;
                 }
-                
-                if ([_listDepthStack count] == 0 || indent > _oldIndent) {
-                    [self.delegate didBeginElement:JHOrderedListElement info:nil];
-                    _ListState* state = [[_ListState alloc] init];
-                    state.type = JHOrderedListElement;
-                    state.indent = indent;
-                    [_listDepthStack addObject:state];
+                // check unordered list
+                else if (character == '*') {
+                    [self _processListItem:JHUnorderedListElement indent:indent];
+                    c += 1;
                 }
-                
-                [self.delegate willParseListItem:JHOrderedListElement indent:indent];
-                c += orderedListSymbolLength - 1;
-            }
-            // check unordered list
-            else if (c == startIndex && character == '*') {
-                if ([_listDepthStack count] && indent < _oldIndent) {
-                    _ListState* state = [_listDepthStack lastObject];
-                    [_listDepthStack removeLastObject];
-                    [self.delegate didEndElement:state.type info:nil];
-                }
-                
-                if ([_listDepthStack count] == 0 || indent > _oldIndent) {
-                    [self.delegate didBeginElement:JHUnorderedListElement info:nil];
-                    _ListState* state = [[_ListState alloc] init];
-                    state.type = JHUnorderedListElement;
-                    state.indent = indent;
-                    [_listDepthStack addObject:state];
-                }
-                
-                [self.delegate willParseListItem:JHUnorderedListElement indent:indent];
-            }
-            else {
-                if (c == startIndex && [_listDepthStack count]) {
+                // must be end of list
+                else if ([_listDepthStack count]) {
                     _ListState* currentList = [_listDepthStack lastObject];
                     if (indent <= currentList.indent) {
                         // Reached a line that doesn't start with list element, so the list(s) must be done
@@ -252,65 +257,50 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
                         [self.delegate didBeginElement:JHHardlineBreakElement info:nil];
                     }
                 }
-                
-                JHElement element = JHNullElement;
-                switch (character) {
-                    case '_':
-                        element = JHEmphasizeElement;
-                        break;
-                        
-                    case '~':
-                        element = JHStrongElement;
-                        break;
-                        
-                    case '#':
-                        element = JHHeaderElement;
-                        break;
-                        
-                    case '`':
-                        element = JHInlineCodeElement;
-                        break;
-                    
-                    case '(':
-                        element = JHLinkElement;
-                        break;
-                        
-                    default:
-                        break;
+            }
+
+            JHElement element = JHNullElement;
+            switch (character) {
+                case '_': element = JHEmphasizeElement;     break;
+                case '~': element = JHStrongElement;        break;
+                case '#': element = JHHeaderElement;        break;
+                case '`': element = JHInlineCodeElement;    break;
+                case '(': element = JHLinkElement;          break;
+                default:                                    break;
+            }
+            
+            BOOL falseOrNullElement = (element == JHNullElement);
+            if (!falseOrNullElement) {
+                if (element == JHHeaderElement) {
+                    [self _consumeHeader:[line substringFromIndex:c]];
+                    c = length;
                 }
-                
-                if (element != JHNullElement) {
-                    if (element == JHHeaderElement) {
-                        [self _consumeHeader:[line substringFromIndex:c]];
-                        c = length;
+                else if (element == JHLinkElement) {
+                    NSUInteger linkLength = [self _consumeLink:[line substringFromIndex:c]];
+                    if (linkLength > 0) {
+                        c += linkLength;
                     }
-                    else if (element == JHLinkElement) {
-                        NSUInteger linkLength = [self _consumeLink:[line substringFromIndex:c]];
-                        if (linkLength > 0) {
-                            c += linkLength;
-                        }
-                        else {
-                            [text appendFormat:@"%c", lineString[c], nil];
-                        }
-                    }
-                    else {
-                        JHElement top = [[_symbolStack lastObject] intValue];
-                        if (top != element) {
-                            [_symbolStack addObject:[NSNumber numberWithInt:(int)element]];
-                            [self.delegate didBeginElement:element info:nil];
-                        }
-                        else {
-                            [_symbolStack removeLastObject];
-                            [self.delegate processText:[text copy]];
-                            [text setString:@""];
-                            [self.delegate didEndElement:element info:nil];
-                        }
-                    }
+                    
+                    falseOrNullElement = (linkLength == 0);
                 }
                 else {
-                    [text appendFormat:@"%c", lineString[c], nil];
-                }                    
+                    JHElement top = [[_symbolStack lastObject] intValue];
+                    if (top != element) {
+                        [_symbolStack addObject:[NSNumber numberWithInt:(int)element]];
+                        [self.delegate didBeginElement:element info:nil];
+                    }
+                    else {
+                        [_symbolStack removeLastObject];
+                        [self.delegate processText:[text copy]];
+                        [text setString:@""];
+                        [self.delegate didEndElement:element info:nil];
+                    }
+                }
             }
+            
+            if (falseOrNullElement) {
+                [text appendFormat:@"%c", lineString[c], nil];
+            }   
         }
         
         if (spaces < length && length != 0) {
@@ -318,6 +308,7 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
         }
     }
     
+    _previousLineEmpty = NO;
     return text;
 }
 
@@ -325,15 +316,7 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
 {
     NSMutableString* text = [NSMutableString string];    
     for (NSString* line in [markdownText componentsSeparatedByString:@"\n"]) {
-        if (IsEmpty(line)) {
-            [self.delegate didBeginElement:JHParagraphElement info:nil];
-            _previousLineEmpty = YES;
-        }
-        else {
-            [text appendString:[self _parseLine:line]];
-            _previousLineEmpty = NO;
-        }
-        
+        [text appendString:[self _parseLine:line]];
         [text appendString:@"\n"];
         [self.delegate processText:[text copy]];
         [text setString:@""];

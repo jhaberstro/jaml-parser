@@ -72,7 +72,7 @@
         }
             
         case JHHardlineBreakElement: {
-            [self.htmlString appendString:@"<br>"];
+            [self.htmlString appendString:@"<br />"];
             break;
         }
             
@@ -81,14 +81,14 @@
             break;
         }
             
+        case JHListItemElement: {
+            [self.htmlString appendString:@"<li>"];
+            break;
+        }
+            
         default:
             break;
     }
-}
-
-- (void)willParseListItem:(JHElement)element indent:(NSUInteger)indent
-{
-    [self.htmlString appendString:@"<li>"];
 }
 
 - (void)processText:(NSString *)text
@@ -132,6 +132,11 @@
             
         case JHLinkElement: {
             [self.htmlString appendString:@"</a>"];
+            break;
+        }
+            
+        case JHListItemElement: {
+            [self.htmlString appendString:@"</li>"];
             break;
         }
             

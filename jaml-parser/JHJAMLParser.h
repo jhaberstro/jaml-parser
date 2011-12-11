@@ -26,6 +26,7 @@ enum {
     JHStrongElement,
     JHOrderedListElement,
     JHUnorderedListElement,
+    JHListItemElement,
     JHHeaderElement,
     JHInlineCodeElement,
     JHLinkElement,
@@ -36,10 +37,10 @@ typedef NSUInteger JHElement;
 
 #define JHHeaderStrength @"JHHeaderStrength"
 #define JHLinkURL        @"JHLinkURL"
+#define JHListIndent     @"JHListIndent"
 
 @protocol JHJAMLParserDelegate <NSObject>
 
-- (void)willParseListItem:(JHElement)element indent:(NSUInteger)indent;
 - (void)didParseHorizontalRule;
 - (void)didBeginElement:(JHElement)element info:(NSDictionary *)info;
 - (void)processText:(NSString *)text;
