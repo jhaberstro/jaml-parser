@@ -51,6 +51,7 @@ typedef NSUInteger JHElement;
 @interface JHJAMLParser : NSObject {
     NSMutableArray* _listDepthStack;
     NSMutableArray* _symbolStack;
+    int _paragraphDepth;
     int _oldIndent;
     BOOL _previousLineEmpty;
 }

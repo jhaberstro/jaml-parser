@@ -42,15 +42,16 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
         return NO;
     }
     
-    *length = [proposedNumber length] + 2;
+    *length = [proposedNumber length] + 2 - startIndex;
     return YES;
 }
 
-static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
-    while ([stack count]) {
+static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id object)) {
+    while ([stack count] && count > 0) {
         id object = [stack lastObject];
         [stack removeLastObject];
         func(object);
+        --count;
     }
 }
 
@@ -58,18 +59,22 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
 @property (assign) JHElement type;
 @property (assign) int indent;
 @property (assign) int numberOfListElements;
+@property (assign) int paragraphsInList;
 @end
 
 @implementation _ListState
 @synthesize type;
 @synthesize indent;
 @synthesize numberOfListElements;
+@synthesize paragraphsInList;
 @end
 
 @interface JHJAMLParser ()
+- (void)_terminateEndItemForList:(_ListState *)state;
+- (void)_unrollListStack:(NSUInteger)count;
+- (void)_processListItem:(JHElement)listType indent:(int)indent;
 - (void)_consumeHeader:(NSString *)line;
 - (NSUInteger)_consumeLink:(NSString *)line;
-- (void)_processListItem:(JHElement)listType indent:(int)indent;
 - (NSString *)_parseLine:(NSString *)line;
 @end
 
@@ -77,30 +82,69 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
 
 @synthesize delegate = _delegate;
 
-+ (void)_unrollListStack:(NSMutableArray *)listStack delegate:(id< JHJAMLParserDelegate >)delegate
-{
-    UnrollStack(listStack, ^(_ListState* state) {
-        if (state.numberOfListElements > 0) {
-            [delegate didEndElement:JHListItemElement info:nil];
-        }
-        
-        if (state.type == JHOrderedListElement)
-            [delegate didEndElement:JHOrderedListElement info:nil];
-        else if (state.type == JHUnorderedListElement)
-            [delegate didEndElement:JHUnorderedListElement info:nil];
-    });
-}
-
 - (id)init
 {
     if ((self = [super init])) {
-        _listDepthStack = [NSMutableArray array];
-        _symbolStack = [NSMutableArray array];
+        _listDepthStack = [[NSMutableArray alloc] init];
+        _symbolStack = [[NSMutableArray alloc] init];
         _oldIndent = 0;
     }
     
     return self;
 }
+
+- (void)_terminateEndItemForList:(_ListState *)state
+{
+    if (state.numberOfListElements > 0) {
+        if (state.paragraphsInList > 0) {
+            [self.delegate didEndElement:JHParagraphElement info:nil];
+            --state.paragraphsInList;
+            --_paragraphDepth;
+        }
+        [self.delegate didEndElement:JHListItemElement info:nil];
+    }
+}
+
+- (void)_unrollListStack:(NSUInteger)count
+{
+    while ([_listDepthStack count] && count > 0) {
+        _ListState* state = [_listDepthStack lastObject];
+        [_listDepthStack removeLastObject];
+        [self _terminateEndItemForList:state];
+        if (state.type == JHOrderedListElement)
+            [self.delegate didEndElement:JHOrderedListElement info:nil];
+        else if (state.type == JHUnorderedListElement)
+            [self.delegate didEndElement:JHUnorderedListElement info:nil];
+        
+        --count;
+    }
+}
+
+- (void)_processListItem:(JHElement)listType indent:(int)indent
+{
+    if ([_listDepthStack count] && indent < _oldIndent) {
+        _ListState* state = [_listDepthStack lastObject];
+        [self _unrollListStack:(state.indent - indent)];
+    }
+    
+    NSUInteger listDepth = [_listDepthStack count];
+    if (listDepth == 0 || (listDepth > 0 && indent > ((_ListState*)[_listDepthStack lastObject]).indent)) {
+        [self.delegate didBeginElement:listType info:nil];
+        _ListState* state = [[_ListState alloc] init];
+        state.type = listType;
+        state.indent = indent;
+        [_listDepthStack addObject:state];
+    }
+    
+    _ListState* currentList = [_listDepthStack lastObject];
+    if (currentList.numberOfListElements > 0 && currentList.indent == indent && currentList.type == listType) {
+        [self _terminateEndItemForList:currentList];
+    }
+    
+    [self.delegate didBeginElement:JHListItemElement info:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:indent] forKey:JHListIndent]];
+    currentList.numberOfListElements += 1;
+}
+
 
 - (void)_consumeHeader:(NSString *)line
 {
@@ -163,36 +207,6 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
     return range.location + range.length + 1;
 };
 
-- (void)_processListItem:(JHElement)listType indent:(int)indent
-{
-    if ([_listDepthStack count] && indent < _oldIndent) {
-        _ListState* state = [_listDepthStack lastObject];
-        if (state.numberOfListElements > 0) {
-            assert(state.indent >= indent);
-            [self.delegate didEndElement:JHListItemElement info:nil];
-        }
-        
-        [_listDepthStack removeLastObject];
-        [self.delegate didEndElement:state.type info:nil];
-    }
-    
-    if ([_listDepthStack count] == 0 || indent > _oldIndent) {
-        [self.delegate didBeginElement:JHOrderedListElement info:nil];
-        _ListState* state = [[_ListState alloc] init];
-        state.type = JHOrderedListElement;
-        state.indent = indent;
-        [_listDepthStack addObject:state];
-    }
-    
-    _ListState* currentList = [_listDepthStack lastObject];
-    if (currentList.numberOfListElements > 0 && currentList.indent == indent && currentList.type == JHOrderedListElement) {
-        [self.delegate didEndElement:JHListItemElement info:nil];
-    }
-    
-    [self.delegate didBeginElement:JHListItemElement info:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:indent] forKey:JHListIndent]];
-    currentList.numberOfListElements += 1;
-}
-
 - (NSString *)_parseLine:(NSString *)line
 {
     //NSLog(@"line: %@",line);
@@ -219,15 +233,30 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
         ++c;
     }
     
-    // test for empty line
+    // test for empty line and insert paragraph tags as appropriate
     if (length == 0 || c == length) {
+        BOOL inList = [_listDepthStack count] > 0;
+        _ListState* currentList = inList ? [_listDepthStack lastObject] : nil;
+        if (_paragraphDepth > 0 && (!inList || currentList.paragraphsInList > 0)) {
+            [self.delegate didEndElement:JHParagraphElement info:nil];
+            --_paragraphDepth;
+            if (currentList.paragraphsInList > 0) {
+                --currentList.paragraphsInList;
+            }
+        }
+        
         [self.delegate didBeginElement:JHParagraphElement info:nil];
         _previousLineEmpty = YES;
+        ++_paragraphDepth;
+        if (inList) {
+            ++currentList.paragraphsInList;
+        }
+        
         return text;
     }
     
     if (IsHorizontalRule(lineString, length)) {
-        [JHJAMLParser _unrollListStack:_listDepthStack delegate:self.delegate];
+        [self _unrollListStack:[_listDepthStack count]];
         [self.delegate didParseHorizontalRule];
     }
     else {
@@ -246,12 +275,12 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
                     [self _processListItem:JHUnorderedListElement indent:indent];
                     c += 1;
                 }
-                // must be end of list
                 else if ([_listDepthStack count]) {
                     _ListState* currentList = [_listDepthStack lastObject];
                     if (indent <= currentList.indent) {
-                        // Reached a line that doesn't start with list element, so the list(s) must be done
-                        [JHJAMLParser _unrollListStack:_listDepthStack delegate:self.delegate];
+                        // Reached a line that doesn't start with a list element with the right indent,
+                        // so the list(s) must be done
+                        [self _unrollListStack:(currentList.indent - indent) + 1];
                     }
                     else if (!_previousLineEmpty) {
                         [self.delegate didBeginElement:JHHardlineBreakElement info:nil];
@@ -303,9 +332,7 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
             }   
         }
         
-        if (spaces < length && length != 0) {
-            _oldIndent = indent;
-        }
+        _oldIndent = indent;
     }
     
     _previousLineEmpty = NO;
@@ -322,7 +349,11 @@ static void UnrollStack(NSMutableArray* stack, void(^func)(id object)) {
         [text setString:@""];
     }
     
-    // Unwind remaining list state
-    [JHJAMLParser _unrollListStack:_listDepthStack delegate:self.delegate];
+    // Unwind remaining state
+    [self _unrollListStack:[_listDepthStack count]];
+    while (_paragraphDepth) {
+        [self.delegate didEndElement:JHParagraphElement info:nil];
+        --_paragraphDepth;
+    }
 }
 @end

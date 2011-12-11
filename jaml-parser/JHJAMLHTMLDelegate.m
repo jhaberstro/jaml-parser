@@ -98,7 +98,7 @@
 
 - (void)didParseHorizontalRule
 {
-    [self.htmlString appendString:@"<hr>"];
+    [self.htmlString appendString:@"<hr />"];
 }
 
 - (void)didEndElement:(JHElement)element info:(NSDictionary *)info
@@ -137,6 +137,11 @@
             
         case JHListItemElement: {
             [self.htmlString appendString:@"</li>"];
+            break;
+        }
+            
+        case JHParagraphElement: {
+            [self.htmlString appendString:@"</p>"];
             break;
         }
             
