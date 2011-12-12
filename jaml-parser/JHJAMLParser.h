@@ -54,6 +54,7 @@ typedef NSUInteger JHElement;
     int _paragraphDepth;
     int _oldIndent;
     BOOL _previousLineEmpty;
+    BOOL _ignoreHardBreak;
 }
 
 - (void)parseJAML:(NSString *)markdownText;

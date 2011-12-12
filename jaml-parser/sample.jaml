@@ -1,45 +1,9 @@
-## ~_header_~
-_emphasized_
-~strong!~ 
-* ul1 
-* _ul2-em_ 
-    * ~inside1-strong~ 
-    * inside2 
-        paragraph1
-        
-        line
-        
-        paragraph2
-* ul3 
-----
-1. ol1 
-2. ol2
-    1. inside1
-        1. depth3-1
-             depth3-1-hardbreak
-             
-             depth3-1-paragraph1
-             
-             depth3-1-paragraph2
-        
-        inside1-paragraph  
-        test      
-        2. depth3-2
-        
-            depth3-2-paragraph2
-        
-`int main()`
+~From:~ Jedd Haberstro
+~To:~ Professor Canosa
+~Date:~ 11 December 2011
+~Subject:~ Professional Communications Assignment
+---
 
-_
-emphasize
-multiple
-lines
-_
 
-~
-bold
-multiple
-lines
-~
+I would like to inform you of.
 
-(www.google.com)

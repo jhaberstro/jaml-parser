@@ -70,6 +70,7 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
 @end
 
 @interface JHJAMLParser ()
+- (void)_resetState;
 - (void)_terminateEndItemForList:(_ListState *)state;
 - (void)_unrollListStack:(NSUInteger)count;
 - (void)_processListItem:(JHElement)listType indent:(int)indent;
@@ -91,6 +92,15 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
     }
     
     return self;
+}
+
+- (void)_resetState
+{
+    [_listDepthStack removeAllObjects];
+    [_symbolStack removeAllObjects];
+    _oldIndent = 0;
+    _previousLineEmpty = NO;
+    _ignoreHardBreak = NO;
 }
 
 - (void)_terminateEndItemForList:(_ListState *)state
@@ -143,18 +153,25 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
     
     [self.delegate didBeginElement:JHListItemElement info:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:indent] forKey:JHListIndent]];
     currentList.numberOfListElements += 1;
+    _ignoreHardBreak = YES;
 }
 
 
 - (void)_consumeHeader:(NSString *)line
 {
     // remove trailing headers symbols
+    NSUInteger length = [line length];
     char const* lineString = [line UTF8String];
-    NSUInteger end = [line length] - 1;
-    while (lineString[end] == '#') {
+    NSUInteger end = length;
+    while (lineString[end - 1] == '#' && end > 0) {
         --end;
     }
-    line = [line substringToIndex:end + 1];
+    
+    if (end == (length - 1)) {
+        return;
+    }
+    
+    line = [line substringToIndex:end];
     
     // remove front header symbols
     int strength = 0;
@@ -209,17 +226,18 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
 
 - (NSString *)_parseLine:(NSString *)line
 {
-    //NSLog(@"line: %@",line);
+    NSLog(@"line: %@",line);
     NSMutableString* text = [NSMutableString string];
     NSUInteger length = [line length];
     char const* lineString = [line UTF8String];
     NSUInteger c = 0;
+    BOOL hasRawText = NO;
     
     // Consume all leading whitespace
     int indent = 0;
     int spaces = 0;
     while (c < length && (lineString[c] == '\t' || lineString[c] == ' ')) {
-        if (lineString[c] == 't') {
+        if (lineString[c] == '\t') {
             spaces += 4;
             indent += 1;
         }
@@ -235,6 +253,7 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
     
     // test for empty line and insert paragraph tags as appropriate
     if (length == 0 || c == length) {
+        _ignoreHardBreak = YES;
         BOOL inList = [_listDepthStack count] > 0;
         _ListState* currentList = inList ? [_listDepthStack lastObject] : nil;
         if (_paragraphDepth > 0 && (!inList || currentList.paragraphsInList > 0)) {
@@ -258,6 +277,7 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
     if (IsHorizontalRule(lineString, length)) {
         [self _unrollListStack:[_listDepthStack count]];
         [self.delegate didParseHorizontalRule];
+        _ignoreHardBreak = YES;
     }
     else {
         NSUInteger startIndex = c;
@@ -303,6 +323,7 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
                 if (element == JHHeaderElement) {
                     [self _consumeHeader:[line substringFromIndex:c]];
                     c = length;
+                    _ignoreHardBreak = YES;
                 }
                 else if (element == JHLinkElement) {
                     NSUInteger linkLength = [self _consumeLink:[line substringFromIndex:c]];
@@ -315,6 +336,8 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
                 else {
                     JHElement top = [[_symbolStack lastObject] intValue];
                     if (top != element) {
+                        [self.delegate processText:[text copy]];
+                        [text setString:@""];
                         [_symbolStack addObject:[NSNumber numberWithInt:(int)element]];
                         [self.delegate didBeginElement:element info:nil];
                     }
@@ -329,10 +352,15 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
             
             if (falseOrNullElement) {
                 [text appendFormat:@"%c", lineString[c], nil];
+                hasRawText = YES;
             }   
         }
         
         _oldIndent = indent;
+    }
+    
+    if (_previousLineEmpty || !hasRawText) {
+        _ignoreHardBreak = YES;
     }
     
     _previousLineEmpty = NO;
@@ -341,11 +369,18 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
 
 - (void)parseJAML:(NSString *)markdownText
 {
+    [self _resetState];
     NSMutableString* text = [NSMutableString string];    
     for (NSString* line in [markdownText componentsSeparatedByString:@"\n"]) {
         [text appendString:[self _parseLine:line]];
-        [text appendString:@"\n"];
+        NSLog(@"[out]processing text: %@", text);
         [self.delegate processText:[text copy]];
+        [text appendString:@"\n"];
+        if (!_ignoreHardBreak) {
+            [self.delegate didBeginElement:JHHardlineBreakElement info:nil];
+        }
+        _ignoreHardBreak = NO;
+        
         [text setString:@""];
     }
     
