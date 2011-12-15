@@ -75,7 +75,7 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
 - (void)_unrollListStack:(NSUInteger)count;
 - (void)_processListItem:(JHElement)listType indent:(int)indent;
 - (void)_consumeHeader:(NSString *)line;
-- (NSUInteger)_consumeLink:(NSString *)line;
+- (NSUInteger)_consumeLink:(NSString *)line previousText:(NSMutableString **)previousText;
 - (NSString *)_parseLine:(NSString *)line;
 @end
 
@@ -190,38 +190,39 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
     [self.delegate didEndElement:JHHeaderElement info:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:strength] forKey:JHHeaderStrength]];
 }
 
-- (NSUInteger)_consumeLink:(NSString *)line
+- (NSUInteger)_consumeLink:(NSString *)line previousText:(NSMutableString **)previousText
 {
-    NSString* regex = @"\".*\" (.*)"; // why does this include the closing ')'?
-    NSRange range = [line rangeOfString:regex options:NSRegularExpressionSearch];
+    NSRegularExpression* regex = [[NSRegularExpression alloc] initWithPattern:@"\\[.*\\]\\(.*\\)" options:0 error:nil];
+    NSRange range = [regex rangeOfFirstMatchInString:line options:0 range:NSMakeRange(0, [line length])];
     if (range.length == 0) {
         return 0;
     }
     
-    range.length -= 1;
-    NSRange nameRange = [line rangeOfString:@"\".*\"" options:NSRegularExpressionSearch range:range];
-    if (1 <= nameRange.length && nameRange.length <= 2) {
-        [NSException raise:@"JAMLLinkElementException" format:@"Link element's name's quotation marks surround empty string."];
+    NSRange nameRange = [[NSRegularExpression regularExpressionWithPattern:@"\\[.*\\]" options:0 error:nil] rangeOfFirstMatchInString:line options:0 range:NSMakeRange(0, [line length])];
+    if (nameRange.length <= 2) {
+        [NSException raise:@"JAMLLinkElementException" format:@"Link element's name's quotation is empty."];
         return 0;
     }
     
     NSRange urlRange = {
         .location = nameRange.location + nameRange.length + 1,
-        .length = range.length - (nameRange.length + 1)
-    };
-    if (urlRange.length == 0) {
-        return 0;
-    }
+        .length = range.length - (nameRange.length + 2)
+    };    
     
-    // adjust name range to exclude quotation marks
+    // adjust name range to exclude brackets
     nameRange.location += 1;
     nameRange.length -= 2;
+    
+    if (*previousText) {
+        [self.delegate processText:*previousText];
+        [*previousText setString:@""];
+    }
     
     [self.delegate didBeginElement:JHLinkElement info:[NSDictionary dictionaryWithObject:[line substringWithRange:urlRange] forKey:JHLinkURL]];
     [self.delegate processText:[self _parseLine:[line substringWithRange:nameRange]]];
     [self.delegate didEndElement:JHLinkElement info:nil];
     
-    return range.location + range.length + 1;
+    return range.location + range.length - 1;
 };
 
 - (NSString *)_parseLine:(NSString *)line
@@ -314,7 +315,7 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
                 case '~': element = JHStrongElement;        break;
                 case '#': element = JHHeaderElement;        break;
                 case '`': element = JHInlineCodeElement;    break;
-                case '(': element = JHLinkElement;          break;
+                case '[': element = JHLinkElement;          break;
                 default:                                    break;
             }
             
@@ -326,7 +327,7 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
                     _ignoreHardBreak = YES;
                 }
                 else if (element == JHLinkElement) {
-                    NSUInteger linkLength = [self _consumeLink:[line substringFromIndex:c]];
+                    NSUInteger linkLength = [self _consumeLink:[line substringFromIndex:c] previousText:&text];
                     if (linkLength > 0) {
                         c += linkLength;
                     }
