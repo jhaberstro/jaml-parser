@@ -22,13 +22,13 @@
 
 enum {
     JHNullElement = 0,
-    JHEmphasizeElement,
-    JHStrongElement,
+    JHEmphasizeElement = 1,
+    JHStrongElement = 2,
+    JHInlineCodeElement = 3,
     JHOrderedListElement,
     JHUnorderedListElement,
     JHListItemElement,
     JHHeaderElement,
-    JHInlineCodeElement,
     JHLinkElement,
     JHHardlineBreakElement,
     JHParagraphElement
@@ -48,14 +48,7 @@ typedef NSUInteger JHElement;
 
 @end
 
-@interface JHJAMLParser : NSObject {
-    NSMutableArray* _listDepthStack;
-    NSMutableArray* _symbolStack;
-    int _paragraphDepth;
-    int _oldIndent;
-    BOOL _previousLineEmpty;
-    BOOL _ignoreHardBreak;
-}
+@interface JHJAMLParser : NSObject
 
 - (void)parseJAML:(NSString *)markdownText;
 

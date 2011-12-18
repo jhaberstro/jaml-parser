@@ -6,9 +6,113 @@
 //  Copyright (c) 2011 Student. All rights reserved.
 //
 
-// TODO - hyperlinks, escape characters (\#, \*, \~, \_) 
+// TODO - escape characters (\#, \*, \~, \_) 
 
 #import "JHJAMLParser.h"
+
+#define JHInlineCode @"JHInlineCode"
+#define JHLinkName   @"JHLinkName"
+#define JHText       @"JHText"
+
+enum {
+    JHNullToken,
+    JHEmphasizeToken = 1,
+    JHStrongToken = 2,
+    JHInlineCodeToken = 3,
+    JHTextToken,
+    JHIndentToken,
+    JHEmptyLineToken,
+    JHNewLineToken,
+    JHOrderedListToken,
+    JHUnorderedListToken,
+    JHHeaderBeginToken,
+    JHHeaderEndToken,
+    JHLinkToken,
+    JHHorizontalRuleToken,
+    
+    JHParagraphBeginToken,
+    JHParagraphEndToken,
+    JHOrderedListBeginToken,
+    JHOrderedListEndToken,
+    JHUnorderedListBeginToken,
+    JHUnorderedListEndToken,
+    JHHardlineBreakToken
+};
+
+typedef NSUInteger JHJAMLTokenType;
+
+@interface JHJAMLToken : NSObject
+- (id)initWithType:(JHJAMLTokenType)type;
+@property (nonatomic, assign) JHJAMLTokenType type;
+@property (nonatomic, strong) NSDictionary* info;
+@end
+
+@implementation JHJAMLToken
+@synthesize type = _type;
+@synthesize info = _info;
+
+- (id)initWithType:(JHJAMLTokenType)type
+{
+    self = [super init];
+    if (self) {
+        self.type = type;
+    }
+    
+    return self;
+}
+
+- (NSString *)description
+{
+    switch (self.type) {
+        case JHTextToken:
+            return [NSString stringWithFormat:@"JHTextToken : %@", [self.info objectForKey:JHText], nil];
+        case JHIndentToken:
+            return @"JHIndentToken";
+        case JHEmptyLineToken:
+            return @"JHEmptyLineToken";
+        case JHNewLineToken:
+            return @"JHNewLineToken";
+        case JHEmphasizeToken:
+            return @"JHEmphasizeToken";
+        case JHStrongToken:
+            return @"JHStrongToken";
+        case JHOrderedListToken:
+            return @"JHOrderedListToken";
+        case JHUnorderedListToken:
+            return @"JHUnorderedListToken";
+        case JHHeaderBeginToken:
+            return @"JHHeaderBeginToken";
+        case JHHeaderEndToken:
+            return @"JHHeaderEndToken";
+        case JHInlineCodeToken:
+            return [NSString stringWithFormat:@"JHInlineCodeToken : %@", [self.info objectForKey:JHInlineCode], nil];
+        case JHLinkToken:
+            return [NSString stringWithFormat:@"JHLinkToken : [name %@] : [url %@]", [self.info objectForKey:JHLinkName], [self.info objectForKey:JHLinkURL], nil];
+        case JHHorizontalRuleToken:
+            return @"JHHorizontalRuleToken";
+            
+        case JHOrderedListBeginToken:
+            return @"JHOrderedListBeginToken";
+        case JHOrderedListEndToken:
+            return @"JHOrderedListEndToken";
+        case JHUnorderedListBeginToken:
+            return @"JHUnorderedListBeginToken";
+        case JHUnorderedListEndToken:
+            return @"JHUnorderedListEndToken";
+        case JHParagraphBeginToken:
+            return @"JHParagraphBeginToken";
+        case JHParagraphEndToken:
+            return @"JHParagraphEndToken";
+        case JHHardlineBreakToken:
+            return @"JHHardlineBreakToken";
+    }
+    
+    
+    assert(false);
+    return nil;
+}
+
+@end
 
 static BOOL IsHorizontalRule(char const* text, NSUInteger length) {
     if (length < 3) {
@@ -46,15 +150,6 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
     return YES;
 }
 
-static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id object)) {
-    while ([stack count] && count > 0) {
-        id object = [stack lastObject];
-        [stack removeLastObject];
-        func(object);
-        --count;
-    }
-}
-
 @interface _ListState : NSObject
 @property (assign) JHElement type;
 @property (assign) int indent;
@@ -70,13 +165,8 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
 @end
 
 @interface JHJAMLParser ()
-- (void)_resetState;
-- (void)_terminateEndItemForList:(_ListState *)state;
-- (void)_unrollListStack:(NSUInteger)count;
-- (void)_processListItem:(JHElement)listType indent:(int)indent;
-- (void)_consumeHeader:(NSString *)line;
-- (NSUInteger)_consumeLink:(NSString *)line previousText:(NSMutableString **)previousText;
-- (NSString *)_parseLine:(NSString *)line;
+- (NSArray *)_tokenize:(NSString *)jamlText;
+- (NSArray *)_annotateTokens:(NSArray *)tokens;
 @end
 
 @implementation JHJAMLParser
@@ -86,310 +176,412 @@ static void UnrollStack(NSMutableArray* stack, NSUInteger count, void(^func)(id 
 - (id)init
 {
     if ((self = [super init])) {
-        _listDepthStack = [[NSMutableArray alloc] init];
-        _symbolStack = [[NSMutableArray alloc] init];
-        _oldIndent = 0;
     }
     
     return self;
 }
 
-- (void)_resetState
+- (NSArray *)_tokenize:(NSString *)jamlText
 {
-    [_listDepthStack removeAllObjects];
-    [_symbolStack removeAllObjects];
-    _oldIndent = 0;
-    _previousLineEmpty = NO;
-    _ignoreHardBreak = NO;
-}
-
-- (void)_terminateEndItemForList:(_ListState *)state
-{
-    if (state.numberOfListElements > 0) {
-        if (state.paragraphsInList > 0) {
-            [self.delegate didEndElement:JHParagraphElement info:nil];
-            --state.paragraphsInList;
-            --_paragraphDepth;
-        }
-        [self.delegate didEndElement:JHListItemElement info:nil];
-    }
-}
-
-- (void)_unrollListStack:(NSUInteger)count
-{
-    while ([_listDepthStack count] && count > 0) {
-        _ListState* state = [_listDepthStack lastObject];
-        [_listDepthStack removeLastObject];
-        [self _terminateEndItemForList:state];
-        if (state.type == JHOrderedListElement)
-            [self.delegate didEndElement:JHOrderedListElement info:nil];
-        else if (state.type == JHUnorderedListElement)
-            [self.delegate didEndElement:JHUnorderedListElement info:nil];
+    NSMutableArray* tokens = [[NSMutableArray alloc] init];
+    for (NSString* line in [jamlText componentsSeparatedByString:@"\n"]) {
+        NSMutableString* text = [[NSMutableString alloc] init];
+        NSUInteger length = [line length];
+        char const* lineString = [line UTF8String];
+        NSUInteger c = 0;
+        NSUInteger orderedListNumberLength = 0;
+        BOOL isHeader = NO;
+        void (^submitTextToken)(void) = ^{
+            if ([text length] > 0) {
+                JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHTextToken];
+                token.info = [NSDictionary dictionaryWithObject:[text copy] forKey:JHText];
+                [tokens addObject:token];
+                [text setString:@""];
+            }
+        };
         
-        --count;
-    }
-}
-
-- (void)_processListItem:(JHElement)listType indent:(int)indent
-{
-    if ([_listDepthStack count] && indent < _oldIndent) {
-        _ListState* state = [_listDepthStack lastObject];
-        [self _unrollListStack:(state.indent - indent)];
-    }
-    
-    NSUInteger listDepth = [_listDepthStack count];
-    if (listDepth == 0 || (listDepth > 0 && indent > ((_ListState*)[_listDepthStack lastObject]).indent)) {
-        [self.delegate didBeginElement:listType info:nil];
-        _ListState* state = [[_ListState alloc] init];
-        state.type = listType;
-        state.indent = indent;
-        [_listDepthStack addObject:state];
-    }
-    
-    _ListState* currentList = [_listDepthStack lastObject];
-    if (currentList.numberOfListElements > 0 && currentList.indent == indent && currentList.type == listType) {
-        [self _terminateEndItemForList:currentList];
-    }
-    
-    [self.delegate didBeginElement:JHListItemElement info:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:indent] forKey:JHListIndent]];
-    currentList.numberOfListElements += 1;
-    _ignoreHardBreak = YES;
-}
-
-
-- (void)_consumeHeader:(NSString *)line
-{
-    // remove trailing headers symbols
-    NSUInteger length = [line length];
-    char const* lineString = [line UTF8String];
-    NSUInteger end = length;
-    while (lineString[end - 1] == '#' && end > 0) {
-        --end;
-    }
-    
-    if (end == (length - 1)) {
-        return;
-    }
-    
-    line = [line substringToIndex:end];
-    
-    // remove front header symbols
-    int strength = 0;
-    NSUInteger c = 0;
-    while (lineString[c] == '#') {
-        strength += 1;
-        c += 1;
-    }
-    
-    // replace middle # symbols with \# and then parse contents
-    NSString* contents = [[line substringFromIndex:c] stringByReplacingOccurrencesOfString:@"#" withString:@"\\#"];
-    
-    // reparse
-    [self.delegate didBeginElement:JHHeaderElement info:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:strength] forKey:JHHeaderStrength]];
-    [self.delegate processText:[self _parseLine:contents]];
-    [self.delegate didEndElement:JHHeaderElement info:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:strength] forKey:JHHeaderStrength]];
-}
-
-- (NSUInteger)_consumeLink:(NSString *)line previousText:(NSMutableString **)previousText
-{
-    NSRegularExpression* regex = [[NSRegularExpression alloc] initWithPattern:@"\\[.*\\]\\(.*\\)" options:0 error:nil];
-    NSRange range = [regex rangeOfFirstMatchInString:line options:0 range:NSMakeRange(0, [line length])];
-    if (range.length == 0) {
-        return 0;
-    }
-    
-    NSRange nameRange = [[NSRegularExpression regularExpressionWithPattern:@"\\[.*\\]" options:0 error:nil] rangeOfFirstMatchInString:line options:0 range:NSMakeRange(0, [line length])];
-    if (nameRange.length <= 2) {
-        [NSException raise:@"JAMLLinkElementException" format:@"Link element's name's quotation is empty."];
-        return 0;
-    }
-    
-    NSRange urlRange = {
-        .location = nameRange.location + nameRange.length + 1,
-        .length = range.length - (nameRange.length + 2)
-    };    
-    
-    // adjust name range to exclude brackets
-    nameRange.location += 1;
-    nameRange.length -= 2;
-    
-    if (*previousText) {
-        [self.delegate processText:*previousText];
-        [*previousText setString:@""];
-    }
-    
-    [self.delegate didBeginElement:JHLinkElement info:[NSDictionary dictionaryWithObject:[line substringWithRange:urlRange] forKey:JHLinkURL]];
-    [self.delegate processText:[self _parseLine:[line substringWithRange:nameRange]]];
-    [self.delegate didEndElement:JHLinkElement info:nil];
-    
-    return range.location + range.length - 1;
-};
-
-- (NSString *)_parseLine:(NSString *)line
-{
-    NSLog(@"line: %@",line);
-    NSMutableString* text = [NSMutableString string];
-    NSUInteger length = [line length];
-    char const* lineString = [line UTF8String];
-    NSUInteger c = 0;
-    BOOL hasRawText = NO;
-    
-    // Consume all leading whitespace
-    int indent = 0;
-    int spaces = 0;
-    while (c < length && (lineString[c] == '\t' || lineString[c] == ' ')) {
-        if (lineString[c] == '\t') {
-            spaces += 4;
-            indent += 1;
-        }
-        else {
-            spaces += 1;
-            if (spaces % 4 == 0) {
+        // Consume all leading whitespace
+        int indent = 0;
+        int spaces = 0;
+        while (c < length && (lineString[c] == '\t' || lineString[c] == ' ')) {
+            if (lineString[c] == '\t') {
+                spaces += 4;
                 indent += 1;
             }
-        }
-        
-        ++c;
-    }
-    
-    // test for empty line and insert paragraph tags as appropriate
-    if (length == 0 || c == length) {
-        _ignoreHardBreak = YES;
-        BOOL inList = [_listDepthStack count] > 0;
-        _ListState* currentList = inList ? [_listDepthStack lastObject] : nil;
-        if (_paragraphDepth > 0 && (!inList || currentList.paragraphsInList > 0)) {
-            [self.delegate didEndElement:JHParagraphElement info:nil];
-            --_paragraphDepth;
-            if (currentList.paragraphsInList > 0) {
-                --currentList.paragraphsInList;
-            }
-        }
-        
-        [self.delegate didBeginElement:JHParagraphElement info:nil];
-        _previousLineEmpty = YES;
-        ++_paragraphDepth;
-        if (inList) {
-            ++currentList.paragraphsInList;
-        }
-        
-        return text;
-    }
-    
-    if (IsHorizontalRule(lineString, length)) {
-        [self _unrollListStack:[_listDepthStack count]];
-        [self.delegate didParseHorizontalRule];
-        _ignoreHardBreak = YES;
-    }
-    else {
-        NSUInteger startIndex = c;
-        for (; c < length; ++c) {
-            unichar character = lineString[c];            
-            if (c == startIndex) {
-                // check ordered lists
-                NSUInteger orderedListSymbolLength = 0;
-                if (StartsWithOrderedList(line, c, &orderedListSymbolLength)) {
-                    [self _processListItem:JHOrderedListElement indent:indent];
-                    c += orderedListSymbolLength - 1;
+            else {
+                spaces += 1;
+                if (spaces % 4 == 0) {
+                    indent += 1;
                 }
-                // check unordered list
-                else if (character == '*') {
-                    [self _processListItem:JHUnorderedListElement indent:indent];
-                    c += 1;
-                }
-                else if ([_listDepthStack count]) {
-                    _ListState* currentList = [_listDepthStack lastObject];
-                    if (indent <= currentList.indent) {
-                        // Reached a line that doesn't start with a list element with the right indent,
-                        // so the list(s) must be done
-                        [self _unrollListStack:(currentList.indent - indent) + 1];
-                    }
-                    else if (!_previousLineEmpty) {
-                        [self.delegate didBeginElement:JHHardlineBreakElement info:nil];
-                    }
-                }
-            }
-
-            JHElement element = JHNullElement;
-            switch (character) {
-                case '_': element = JHEmphasizeElement;     break;
-                case '~': element = JHStrongElement;        break;
-                case '#': element = JHHeaderElement;        break;
-                case '`': element = JHInlineCodeElement;    break;
-                case '[': element = JHLinkElement;          break;
-                default:                                    break;
             }
             
-            BOOL falseOrNullElement = (element == JHNullElement);
-            if (!falseOrNullElement) {
-                if (element == JHHeaderElement) {
-                    [self _consumeHeader:[line substringFromIndex:c]];
-                    c = length;
-                    _ignoreHardBreak = YES;
-                }
-                else if (element == JHLinkElement) {
-                    NSUInteger linkLength = [self _consumeLink:[line substringFromIndex:c] previousText:&text];
-                    if (linkLength > 0) {
-                        c += linkLength;
+            ++c;
+        }
+        
+        if (length == 0 || c == length) {
+            [tokens addObject:[[JHJAMLToken alloc] initWithType:JHEmptyLineToken]];
+            goto END_OF_LINE;
+        }
+        
+        if (IsHorizontalRule(lineString, length)) {
+            [tokens addObject:[[JHJAMLToken alloc] initWithType:JHHorizontalRuleToken]];
+            goto END_OF_LINE;
+        }
+        
+        for (int i = 0; i < indent; ++i) {
+            [tokens addObject:[[JHJAMLToken alloc] initWithType:JHIndentToken]];
+        }
+        
+        int headerStrength = 0;
+        if (lineString[c] == '#') {
+            while (lineString[c] == '#') {
+                headerStrength += 1;
+                c += 1;
+            }
+            
+            JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHHeaderBeginToken];
+            token.info = [NSDictionary dictionaryWithObject:[NSNumber numberWithInt:headerStrength] forKey:JHHeaderStrength];
+            [tokens addObject:token];
+            isHeader = YES;
+        }
+        else if (lineString[c] == '*') {
+            [tokens addObject:[[JHJAMLToken alloc] initWithType:JHUnorderedListToken]];
+            c += 1;
+        }
+        else if (StartsWithOrderedList(line, c, &orderedListNumberLength)) {
+            [tokens addObject:[[JHJAMLToken alloc] initWithType:JHOrderedListToken]];
+            c += orderedListNumberLength - 1;
+        }
+        
+        for (; c < length; ++c) {
+            switch (lineString[c]) {
+                case '_':
+                    submitTextToken();
+                    [tokens addObject:[[JHJAMLToken alloc] initWithType:JHEmphasizeToken]];
+                    continue;
+                case '~':
+                    submitTextToken();
+                    [tokens addObject:[[JHJAMLToken alloc] initWithType:JHStrongToken]];
+                    continue;
+                case '`': {
+                    NSUInteger start = c + 1;
+                    NSUInteger offset = 0;
+                    while (lineString[start + offset] != '`' && (start + offset) < length) {
+                        offset += 1;
                     }
                     
-                    falseOrNullElement = (linkLength == 0);
+                    if (lineString[start + offset] == '`') {
+                        submitTextToken();
+                        NSString* inlineCodeContents = [line substringWithRange:NSMakeRange(start, offset)];
+                        JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHInlineCodeToken];
+                        token.info = [NSDictionary dictionaryWithObject:inlineCodeContents forKey:JHInlineCode];
+                        [tokens addObject:token];
+                        c += offset + 1;
+                        continue;
+                    }
+                    
+                    break;
                 }
-                else {
-                    JHElement top = [[_symbolStack lastObject] intValue];
-                    if (top != element) {
-                        [self.delegate processText:[text copy]];
-                        [text setString:@""];
-                        [_symbolStack addObject:[NSNumber numberWithInt:(int)element]];
-                        [self.delegate didBeginElement:element info:nil];
+                case '[': {
+                    NSString* startLink = [line substringFromIndex:c];
+                    NSRegularExpression* regex = [[NSRegularExpression alloc] initWithPattern:@"\\[.*\\]\\(.*\\)" options:0 error:nil];
+                    NSRange range = [regex rangeOfFirstMatchInString:startLink options:0 range:NSMakeRange(0, [startLink length])];
+                    if (range.length == 0) {
+                        break;
                     }
-                    else {
-                        [_symbolStack removeLastObject];
-                        [self.delegate processText:[text copy]];
-                        [text setString:@""];
-                        [self.delegate didEndElement:element info:nil];
+                    assert(range.location == 0);
+                    NSRange nameRange = [[NSRegularExpression regularExpressionWithPattern:@"\\[.*\\]" options:0 error:nil] rangeOfFirstMatchInString:startLink options:0 range:NSMakeRange(0, [startLink length])];
+                    if (nameRange.length <= 2) {
+                        break;
                     }
+                    
+                    NSRange urlRange = {
+                        .location = nameRange.location + nameRange.length + 1,
+                        .length = range.length - (nameRange.length + 2)
+                    };    
+                    
+                    // adjust name range to exclude brackets
+                    nameRange.location += 1;
+                    nameRange.length -= 2;
+                    
+                    submitTextToken();
+                    NSString* name = [startLink substringWithRange:nameRange];
+                    NSString* url  = [startLink substringWithRange:urlRange];
+                    JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHLinkToken];
+                    token.info = [NSDictionary dictionaryWithObjectsAndKeys:name, JHLinkName, url, JHLinkURL, nil];
+                    [tokens addObject:token];
+                    c += range.length;
+                    break;
                 }
             }
             
-            if (falseOrNullElement) {
-                [text appendFormat:@"%c", lineString[c], nil];
-                hasRawText = YES;
-            }   
+            [text appendFormat:@"%c", lineString[c]];
         }
         
-        _oldIndent = indent;
+    END_OF_LINE:
+        submitTextToken();
+        if (isHeader) {
+            JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHHeaderEndToken];
+            token.info = [NSDictionary dictionaryWithObject:[NSNumber numberWithInt:headerStrength] forKey:JHHeaderStrength];
+            [tokens addObject:token];
+        }
+        [tokens addObject:[[JHJAMLToken alloc] initWithType:JHNewLineToken]];
     }
     
-    if (_previousLineEmpty || !hasRawText) {
-        _ignoreHardBreak = YES;
+    return tokens;
+}
+
+- (NSArray *)_annotateTokens:(NSArray *)tokens
+{
+    void (^popListStack)(NSMutableArray*, NSMutableArray*, NSUInteger) = ^(NSMutableArray* listStack, NSMutableArray* lineTokens, NSUInteger count) {
+        while (count > 0) {
+            _ListState* endedList = [listStack lastObject];
+            JHJAMLTokenType type = endedList.type == JHOrderedListToken ? JHOrderedListEndToken : JHUnorderedListEndToken;
+            [listStack removeLastObject];
+            [lineTokens insertObject:[[JHJAMLToken alloc] initWithType:type] atIndex:0];
+            --count;
+        }  
+    };
+    
+    NSMutableArray* tokensByLine = [[NSMutableArray alloc] init];
+    NSMutableArray* temporaryLine = [[NSMutableArray alloc] init];
+    for (JHJAMLToken* token in tokens) {
+        if (token.type == JHNewLineToken) {
+            [tokensByLine addObject:[temporaryLine mutableCopy]];
+            [temporaryLine removeAllObjects];
+        }
+        else {
+            [temporaryLine addObject:token];
+        }
+    }
+
+    int indents[[tokensByLine count]];
+    for (NSUInteger line = 0; line < [tokensByLine count]; ++line) {
+        NSMutableArray* lineTokens = [tokensByLine objectAtIndex:line];
+        int indent = 0;
+        for (int i = 0; i < [lineTokens count]; ++i) {
+            JHJAMLToken* token = [lineTokens objectAtIndex:i];
+            if (token.type == JHIndentToken) {
+                indent += 1;
+            }
+            else {
+                indents[line] = indent;
+                break;
+            }
+        }
     }
     
-    _previousLineEmpty = NO;
-    return text;
+    // insert list begin/end tokens
+    NSMutableArray* listStack = [NSMutableArray array];
+    for (NSUInteger line = 0; line < [tokensByLine count]; ++line) {
+        NSMutableArray* lineTokens = [tokensByLine objectAtIndex:line];
+        int indent = indents[line];
+        JHJAMLToken* firstToken = [lineTokens objectAtIndex:indent];
+        //NSLog(@"line: %@", lineTokens);
+        //NSLog(@"firstToken: %@", [firstToken description]);
+        BOOL isList = firstToken.type == JHOrderedListToken || firstToken.type == JHUnorderedListToken;
+        if (isList) {
+            // If (there exists no other current lists) or (there exists a list and the indent is greater than that list's indent)
+            // then we have a new list
+            if ((indent == 0 && [listStack count] == 0) || ([listStack count] > 0 && indent > [[listStack lastObject] indent])) {
+                JHJAMLTokenType type = firstToken.type == JHOrderedListToken ? JHOrderedListBeginToken : JHUnorderedListBeginToken;
+                [lineTokens insertObject:[[JHJAMLToken alloc] initWithType:type] atIndex:indent];
+                _ListState* list = [[_ListState alloc] init];
+                list.type = firstToken.type;
+                list.indent = indent;
+                [listStack addObject:list];
+            }
+            // if (the current list is nested) and (the indent is less than that list's indent)
+            // then the nested list ended
+            else if ([listStack count] > 1 && indent < [[listStack lastObject] indent]) {
+                int endCount = [[listStack lastObject] indent] - indent;
+                popListStack(listStack, lineTokens, endCount);               
+            }
+        }
+        else if ((firstToken.type != JHEmptyLineToken && [listStack count] > 0)) {
+            _ListState* endedList = [listStack lastObject];
+            if (indent <= endedList.indent) {
+                NSUInteger previousLine = line - 1;
+                while ([(JHJAMLToken *)[[tokensByLine objectAtIndex:previousLine] objectAtIndex:0] type] == JHEmptyLineToken) {
+                    --previousLine;
+                }
+                
+                previousLine += 1;
+                int endCount = ([[listStack lastObject] indent] - indent) + 1;
+                popListStack(listStack, [tokensByLine objectAtIndex:previousLine], endCount);                             
+            }            
+        }     
+    }
+    
+    // insert paragraph symbols, and check for horizontal rule
+    // TODO - merge with pass above
+    int listDepth = 0;
+    for (NSUInteger line = 0; line < [tokensByLine count]; ++line) {
+        BOOL skipBreakLine = NO;
+        NSMutableArray* lineTokens = [tokensByLine objectAtIndex:line];
+        JHJAMLToken* firstToken = [lineTokens objectAtIndex:0];
+        int previousLine = (int)line - 1;
+        if (previousLine == -1) {
+            [lineTokens insertObject:[[JHJAMLToken alloc] initWithType:JHParagraphBeginToken] atIndex:0];
+        }
+        
+        if (firstToken.type == JHHorizontalRuleToken || firstToken.type == JHHeaderBeginToken) {
+            skipBreakLine = YES;
+        }
+        
+        for (NSUInteger tokenIndex = 0; tokenIndex < [lineTokens count]; ++tokenIndex) {
+            JHJAMLToken* token = [lineTokens objectAtIndex:tokenIndex];
+            switch (token.type) {
+                case JHOrderedListBeginToken:
+                case JHUnorderedListBeginToken:
+                    listDepth += 1;
+                    break;
+                    
+                case JHOrderedListEndToken:
+                case JHUnorderedListEndToken:
+                    listDepth -= 1;
+                    break;
+                    
+                case JHEmptyLineToken: {
+                    if (previousLine >= 0) {
+                        if (listDepth == 0) {
+                            JHJAMLToken* previousLineToken = [[tokensByLine objectAtIndex:previousLine] objectAtIndex:indents[previousLine]];
+                            if (previousLineToken.type != JHParagraphEndToken && previousLineToken.type != JHEmptyLineToken) {
+                                token.type = JHParagraphEndToken;
+                                [lineTokens insertObject:[[JHJAMLToken alloc] initWithType:JHParagraphBeginToken] atIndex:tokenIndex + 1];
+                                skipBreakLine = YES;
+                            }
+                        }
+                    }
+                    
+                    break;
+                }
+            }
+            
+            tokenIndex += 1;
+        }
+        
+        if (!skipBreakLine) {
+            [lineTokens addObject:[[JHJAMLToken alloc] initWithType:JHHardlineBreakToken]];
+        }
+    }
+    
+    NSMutableArray* lineForEndTokens = [[NSMutableArray alloc] init];
+    popListStack(listStack, lineForEndTokens, [listStack count]);
+    [tokensByLine addObject:[[lineForEndTokens reverseObjectEnumerator] allObjects]];
+    
+    NSMutableArray* merged = [[NSMutableArray alloc] init];
+    for (NSMutableArray* lineTokens in tokensByLine) {
+        [merged addObjectsFromArray:lineTokens];
+    }
+    
+    [merged addObject:[[JHJAMLToken alloc] initWithType:JHParagraphEndToken]];
+    return merged;
 }
 
 - (void)parseJAML:(NSString *)markdownText
 {
-    [self _resetState];
-    NSMutableString* text = [NSMutableString string];    
-    for (NSString* line in [markdownText componentsSeparatedByString:@"\n"]) {
-        [text appendString:[self _parseLine:line]];
-        NSLog(@"[out]processing text: %@", text);
-        [self.delegate processText:[text copy]];
-        [text appendString:@"\n"];
-        if (!_ignoreHardBreak) {
-            [self.delegate didBeginElement:JHHardlineBreakElement info:nil];
+    NSArray* tokens = [self _annotateTokens:[self _tokenize:markdownText]];
+    int tokenIndex = 0;
+    NSMutableArray* symbolStack = [[NSMutableArray alloc] init]; 
+    for (JHJAMLToken* token in tokens) {
+        switch (token.type) {
+            case JHTextToken:
+                [self.delegate processText:[token.info objectForKey:JHText]];
+                break;
+                
+            case JHStrongToken:
+            case JHEmphasizeToken: {
+                if ([symbolStack count] && [[symbolStack lastObject] unsignedIntegerValue] == token.type) {
+                    [self.delegate didEndElement:token.type info:nil];
+                    [symbolStack removeLastObject];
+                }
+                else {
+                    [symbolStack addObject:[NSNumber numberWithUnsignedInteger:token.type]];
+                    [self.delegate didBeginElement:token.type info:nil];
+                }
+                break;
+            }
+                
+            case JHInlineCodeToken: {
+                NSString* inlineCode = [token.info objectForKey:JHInlineCode];
+                [self.delegate didBeginElement:JHInlineCodeElement info:nil];
+                [self.delegate processText:inlineCode];
+                [self.delegate didEndElement:JHInlineCodeElement info:nil];
+                break;
+            }
+                
+            case JHParagraphBeginToken:
+                [self.delegate didBeginElement:JHParagraphElement info:nil];
+                break;
+                
+            case JHParagraphEndToken:
+                [self.delegate didEndElement:JHParagraphEndToken info:nil];
+                break;
+                
+            case JHOrderedListBeginToken:
+                [self.delegate didBeginElement:JHOrderedListElement info:nil];
+                break;
+                
+            case JHOrderedListEndToken:
+                [self.delegate didEndElement:JHOrderedListElement info:nil];
+                break;
+                
+            case JHUnorderedListBeginToken:
+                [self.delegate didBeginElement:JHUnorderedListElement info:nil];
+                break;
+                
+            case JHUnorderedListEndToken:
+                [self.delegate didEndElement:JHUnorderedListElement info:nil];
+                break;
+                
+            case JHOrderedListToken:
+            case JHUnorderedListToken: {
+                JHJAMLTokenType previousToken = [(JHJAMLToken *)[tokens objectAtIndex:(tokenIndex - 1)] type];
+                if (previousToken != JHOrderedListBeginToken && previousToken != JHUnorderedListBeginToken) {
+                    [self.delegate didEndElement:JHListItemElement info:nil];
+                }
+                
+                [self.delegate didBeginElement:JHListItemElement info:nil];
+                break;
+            }
+                
+            case JHHeaderBeginToken: {
+                NSNumber* strength = [token.info objectForKey:JHHeaderStrength];
+                [self.delegate didBeginElement:JHHeaderElement info:[NSDictionary dictionaryWithObject:strength forKey:JHHeaderStrength]];
+                break;
+            }
+                
+            case JHHeaderEndToken: {
+                NSNumber* strength = [token.info objectForKey:JHHeaderStrength];
+                [self.delegate didEndElement:JHHeaderElement info:[NSDictionary dictionaryWithObject:strength forKey:JHHeaderStrength]];
+                break;
+            }
+                
+            case JHHorizontalRuleToken:
+                [self.delegate didParseHorizontalRule];
+                break;
+                
+            case JHHardlineBreakToken:
+                [self.delegate didBeginElement:JHHardlineBreakElement info:nil];
+                break;
+                
+            case JHLinkToken: {
+                NSString* url = [token.info objectForKey:JHLinkURL];
+                NSString* name = [token.info objectForKey:JHLinkName];
+                [self.delegate didBeginElement:JHLinkElement info:[NSDictionary dictionaryWithObject:url forKey:JHLinkURL]];
+                [self.delegate processText:name];
+                [self.delegate didEndElement:JHLinkElement info:nil];
+                break;
+            }
         }
-        _ignoreHardBreak = NO;
         
-        [text setString:@""];
-    }
-    
-    // Unwind remaining state
-    [self _unrollListStack:[_listDepthStack count]];
-    while (_paragraphDepth) {
-        [self.delegate didEndElement:JHParagraphElement info:nil];
-        --_paragraphDepth;
+        tokenIndex += 1;
+        
+        printf("{%s} ", [[token description] UTF8String]);
+        if (token.type == JHHardlineBreakToken || token.type == JHParagraphBeginToken || token.type == JHParagraphEndToken) {
+            printf("\n");
+        }
     }
 }
 @end
