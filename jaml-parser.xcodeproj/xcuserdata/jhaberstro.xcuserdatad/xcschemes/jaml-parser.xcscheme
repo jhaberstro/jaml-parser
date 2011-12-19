@@ -57,7 +57,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "sample.jaml"
+            argument = "Markdown-readme.jaml"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

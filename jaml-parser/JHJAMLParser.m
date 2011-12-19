@@ -5,8 +5,9 @@
 //  Created by Jedd Haberstro on 12/8/11.
 //  Copyright (c) 2011 Student. All rights reserved.
 //
-
-// TODO - escape characters (\#, \*, \~, \_) 
+//
+// TODO - escape characters, list error (combination of unordered and ordered)
+//
 
 #import "JHJAMLParser.h"
 
@@ -377,13 +378,22 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
         NSMutableArray* lineTokens = [tokensByLine objectAtIndex:line];
         int indent = indents[line];
         JHJAMLToken* firstToken = [lineTokens objectAtIndex:indent];
-        //NSLog(@"line: %@", lineTokens);
-        //NSLog(@"firstToken: %@", [firstToken description]);
         BOOL isList = firstToken.type == JHOrderedListToken || firstToken.type == JHUnorderedListToken;
         if (isList) {
+            _ListState* lastList = [listStack lastObject];
+            if ([listStack count] > 0 && lastList.type != firstToken.type && lastList.indent == indent) {
+                popListStack(listStack, lineTokens, 1);
+                
+                JHJAMLTokenType type = firstToken.type == JHOrderedListToken ? JHOrderedListBeginToken : JHUnorderedListBeginToken;
+                [lineTokens insertObject:[[JHJAMLToken alloc] initWithType:type] atIndex:indent + 1];
+                _ListState* list = [[_ListState alloc] init];
+                list.type = firstToken.type;
+                list.indent = indent;
+                [listStack addObject:list];
+            }
             // If (there exists no other current lists) or (there exists a list and the indent is greater than that list's indent)
             // then we have a new list
-            if ((indent == 0 && [listStack count] == 0) || ([listStack count] > 0 && indent > [[listStack lastObject] indent])) {
+            else if ((indent == 0 && [listStack count] == 0) || ([listStack count] > 0 && indent > [[listStack lastObject] indent])) {
                 JHJAMLTokenType type = firstToken.type == JHOrderedListToken ? JHOrderedListBeginToken : JHUnorderedListBeginToken;
                 [lineTokens insertObject:[[JHJAMLToken alloc] initWithType:type] atIndex:indent];
                 _ListState* list = [[_ListState alloc] init];
@@ -482,6 +492,7 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
 - (void)parseJAML:(NSString *)markdownText
 {
     NSArray* tokens = [self _annotateTokens:[self _tokenize:markdownText]];
+    //NSLog(@"%@", tokens);
     int tokenIndex = 0;
     NSMutableArray* symbolStack = [[NSMutableArray alloc] init]; 
     for (JHJAMLToken* token in tokens) {
@@ -505,8 +516,20 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
                 
             case JHInlineCodeToken: {
                 NSString* inlineCode = [token.info objectForKey:JHInlineCode];
+                
+                NSMutableString* mutableInlineCode = [[NSMutableString alloc] init];
+                for (NSUInteger i = 0; i < [inlineCode length]; ++i) {
+                    unichar character = [inlineCode characterAtIndex:i];
+                    switch (character) {
+                        case '<': [mutableInlineCode appendString:@"&lt;"]; break;
+                        case '>': [mutableInlineCode appendString:@"&gt;"]; break;
+                        case '&': [mutableInlineCode appendString:@"&amp;"]; break;
+                        default: [mutableInlineCode appendFormat:@"%c", character, nil]; break;
+                    }
+                }
+                
                 [self.delegate didBeginElement:JHInlineCodeElement info:nil];
-                [self.delegate processText:inlineCode];
+                [self.delegate processText:mutableInlineCode];
                 [self.delegate didEndElement:JHInlineCodeElement info:nil];
                 break;
             }
@@ -516,7 +539,7 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
                 break;
                 
             case JHParagraphEndToken:
-                [self.delegate didEndElement:JHParagraphEndToken info:nil];
+                [self.delegate didEndElement:JHParagraphElement info:nil];
                 break;
                 
             case JHOrderedListBeginToken:
@@ -578,10 +601,10 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
         
         tokenIndex += 1;
         
-        printf("{%s} ", [[token description] UTF8String]);
-        if (token.type == JHHardlineBreakToken || token.type == JHParagraphBeginToken || token.type == JHParagraphEndToken) {
-            printf("\n");
-        }
+        //printf("{%s} ", [[token description] UTF8String]);
+        //if (token.type == JHHardlineBreakToken || token.type == JHParagraphBeginToken || token.type == JHParagraphEndToken) {
+        //    printf("\n");
+        //}
     }
 }
 @end

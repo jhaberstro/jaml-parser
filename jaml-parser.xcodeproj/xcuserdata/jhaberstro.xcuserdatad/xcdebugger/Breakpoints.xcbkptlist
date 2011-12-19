@@ -23,11 +23,11 @@
          continueAfterRunningActions = "No"
          isPathRelative = "1"
          filePath = "jaml-parser/JHJAMLParser.m"
-         timestampString = "345890960.551223"
+         timestampString = "345963528.560492"
          startingColumnNumber = "9223372036854775807"
          endingColumnNumber = "9223372036854775807"
-         startingLineNumber = "360"
-         endingLineNumber = "360"
+         startingLineNumber = "361"
+         endingLineNumber = "361"
          landmarkName = "-_annotateTokens:"
          landmarkType = "5">
       </FileBreakpoint>

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C72DE146149EFC4A00E505D5 /* Markdown-readme.jaml in CopyFiles */ = {isa = PBXBuildFile; fileRef = C72DE144149EFC3D00E505D5 /* Markdown-readme.jaml */; };
 		C7628E6E1492EB7000DD3C34 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C7628E6D1492EB7000DD3C34 /* Foundation.framework */; };
 		C7628E711492EB7000DD3C34 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = C7628E701492EB7000DD3C34 /* main.m */; };
 		C7628E7F1492EBB100DD3C34 /* JHJAMLParser.m in Sources */ = {isa = PBXBuildFile; fileRef = C7628E7C1492EBB100DD3C34 /* JHJAMLParser.m */; };
@@ -21,6 +22,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 16;
 			files = (
+				C72DE146149EFC4A00E505D5 /* Markdown-readme.jaml in CopyFiles */,
 				C7628E821492EBE400DD3C34 /* sample.jaml in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -28,6 +30,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C72DE144149EFC3D00E505D5 /* Markdown-readme.jaml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Markdown-readme.jaml"; sourceTree = "<group>"; };
 		C7628E691492EB7000DD3C34 /* jaml-parser */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "jaml-parser"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C7628E6D1492EB7000DD3C34 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		C7628E701492EB7000DD3C34 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
@@ -92,6 +95,7 @@
 		C7628E721492EB7000DD3C34 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				C72DE144149EFC3D00E505D5 /* Markdown-readme.jaml */,
 				C7628E811492EBBC00DD3C34 /* sample.jaml */,
 				C7628E731492EB7000DD3C34 /* jaml-parser-Prefix.pch */,
 			);
@@ -242,6 +246,7 @@
 				C7628E7A1492EB7000DD3C34 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
