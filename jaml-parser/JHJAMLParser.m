@@ -47,12 +47,14 @@ typedef NSUInteger JHJAMLTokenType;
 @property (nonatomic, assign) JHJAMLTokenType type;
 @property (nonatomic, strong) NSDictionary* info;
 @property (nonatomic, assign) NSUInteger location;
+@property (nonatomic, assign) NSRange range;
 @end
 
 @implementation JHJAMLToken
 @synthesize type = _type;
 @synthesize info = _info;
 @synthesize location = _location;
+@synthesize range = _range;
 
 - (id)initWithType:(JHJAMLTokenType)type
 {
@@ -180,7 +182,7 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
 - (id)init
 {
     if ((self = [super init])) {
-        self.delegates = [[JHMulticastDelegate alloc] initWithProtocol:@protocol(JHJAMLParserDelegate)];
+        self.delegates = (JHMulticastDelegate< JHJAMLParserDelegate > *)[[JHMulticastDelegate alloc] initWithProtocol:@protocol(JHJAMLParserDelegate)];
     }
     
     return self;
@@ -260,15 +262,13 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
         }
         else if (lineString[c] == '*') {
             JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHUnorderedListToken];
-            NSRange range = NSMakeRange(totalLength + c, 1);
-            token.info = [NSDictionary dictionaryWithObject:[NSValue valueWithRange:range] forKey:JHElementRange];
+            token.range = NSMakeRange(totalLength + c, 1);
             [tokens addObject:token];
             c += 1;
         }
         else if (StartsWithOrderedList(line, c, &orderedListNumberLength)) {
             JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHOrderedListToken];
-            NSRange range = NSMakeRange(totalLength + c, orderedListNumberLength);
-            token.info = [NSDictionary dictionaryWithObject:[NSValue valueWithRange:range] forKey:JHElementRange];
+            token.range = NSMakeRange(totalLength + c, orderedListNumberLength);
             [tokens addObject:token];
             c += orderedListNumberLength;
         }
@@ -301,8 +301,8 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
                         submitTextToken();
                         NSString* inlineCodeContents = [line substringWithRange:NSMakeRange(start, offset)];
                         JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHInlineCodeToken];
-                        NSRange range = NSMakeRange(totalLength + start - 1, offset + 2);
-                        token.info = [NSDictionary dictionaryWithObjectsAndKeys:inlineCodeContents, JHInlineCode, [NSValue valueWithRange:range], JHElementRange, nil];
+                        token.range = NSMakeRange(totalLength + start - 1, offset + 2);
+                        token.info = [NSDictionary dictionaryWithObjectsAndKeys:inlineCodeContents, JHInlineCode, nil];
                         [tokens addObject:token];
                         c += offset + 1;
                         continue;
@@ -336,10 +336,10 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
                     NSString* name = [startLink substringWithRange:nameRange];
                     NSString* url  = [startLink substringWithRange:urlRange];
                     JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHLinkToken];
+                    token.range = NSMakeRange(totalLength + c, range.length);
                     token.info = [NSDictionary dictionaryWithObjectsAndKeys:
                         name, JHLinkName,
                         url, JHLinkURL,
-                        [NSValue valueWithRange:NSMakeRange(totalLength + c, range.length)], JHElementRange,
                         nil
                     ];
                     [tokens addObject:token];
@@ -568,7 +568,7 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
                     }
                 }
                 
-                NSDictionary* info = [NSDictionary dictionaryWithObject:[token.info objectForKey:JHElementRange] forKey:JHElementRange];
+                NSDictionary* info = [NSDictionary dictionaryWithObject:[NSValue valueWithRange:token.range] forKey:JHElementRange];
                 [self.delegates didParseInlineCode:inlineCode info:info];
                 break;
             }
@@ -604,7 +604,8 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
                     [self.delegates didEndElement:JHListItemElement info:nil];
                 }
                 
-                [self.delegates didBeginElement:JHListItemElement info:token.info];
+                NSDictionary* infoDict = [NSDictionary dictionaryWithObject:[NSValue valueWithRange:token.range] forKey:JHElementRange];
+                [self.delegates didBeginElement:JHListItemElement info:infoDict];
                 break;
             }
                 
@@ -635,18 +636,14 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
             case JHLinkToken: {
                 NSString* url = [token.info objectForKey:JHLinkURL];
                 NSString* name = [token.info objectForKey:JHLinkName];
-                NSDictionary* infoDict = [NSDictionary dictionaryWithObject:[token.info objectForKey:JHElementRange] forKey:JHElementRange];
+                NSValue* range = [NSValue valueWithRange:token.range];
+                NSDictionary* infoDict = [NSDictionary dictionaryWithObject:range forKey:JHElementRange];
                 [self.delegates didParseLinkWithURL:url name:name info:infoDict];
                 break;
             }
         }
         
         tokenIndex += 1;
-        
-        //printf("{%s} ", [[token description] UTF8String]);
-        //if (token.type == JHHardlineBreakToken || token.type == JHParagraphBeginToken || token.type == JHParagraphEndToken) {
-        //    printf("\n");
-        //}
     }
 }
 
