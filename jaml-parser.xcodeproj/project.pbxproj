@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		C72DE146149EFC4A00E505D5 /* Markdown-readme.jaml in CopyFiles */ = {isa = PBXBuildFile; fileRef = C72DE144149EFC3D00E505D5 /* Markdown-readme.jaml */; };
+		C72DE14C14A007C100E505D5 /* JHMulticastDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = C72DE14B14A007C100E505D5 /* JHMulticastDelegate.m */; };
 		C7628E6E1492EB7000DD3C34 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C7628E6D1492EB7000DD3C34 /* Foundation.framework */; };
 		C7628E711492EB7000DD3C34 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = C7628E701492EB7000DD3C34 /* main.m */; };
 		C7628E7F1492EBB100DD3C34 /* JHJAMLParser.m in Sources */ = {isa = PBXBuildFile; fileRef = C7628E7C1492EBB100DD3C34 /* JHJAMLParser.m */; };
@@ -31,6 +32,8 @@
 
 /* Begin PBXFileReference section */
 		C72DE144149EFC3D00E505D5 /* Markdown-readme.jaml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "Markdown-readme.jaml"; sourceTree = "<group>"; };
+		C72DE14A14A007C100E505D5 /* JHMulticastDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JHMulticastDelegate.h; sourceTree = "<group>"; };
+		C72DE14B14A007C100E505D5 /* JHMulticastDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = JHMulticastDelegate.m; sourceTree = "<group>"; };
 		C7628E691492EB7000DD3C34 /* jaml-parser */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "jaml-parser"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C7628E6D1492EB7000DD3C34 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		C7628E701492EB7000DD3C34 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
@@ -86,6 +89,8 @@
 				C7628E7C1492EBB100DD3C34 /* JHJAMLParser.m */,
 				C7628E7D1492EBB100DD3C34 /* JHJAMLHTMLDelegate.h */,
 				C7628E7E1492EBB100DD3C34 /* JHJAMLHTMLDelegate.m */,
+				C72DE14A14A007C100E505D5 /* JHMulticastDelegate.h */,
+				C72DE14B14A007C100E505D5 /* JHMulticastDelegate.m */,
 				C7628E701492EB7000DD3C34 /* main.m */,
 				C7628E721492EB7000DD3C34 /* Supporting Files */,
 			);
@@ -156,6 +161,7 @@
 				C7628E711492EB7000DD3C34 /* main.m in Sources */,
 				C7628E7F1492EBB100DD3C34 /* JHJAMLParser.m in Sources */,
 				C7628E801492EBB100DD3C34 /* JHJAMLHTMLDelegate.m in Sources */,
+				C72DE14C14A007C100E505D5 /* JHMulticastDelegate.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

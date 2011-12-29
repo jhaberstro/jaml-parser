@@ -46,11 +46,13 @@ typedef NSUInteger JHJAMLTokenType;
 - (id)initWithType:(JHJAMLTokenType)type;
 @property (nonatomic, assign) JHJAMLTokenType type;
 @property (nonatomic, strong) NSDictionary* info;
+@property (nonatomic, assign) NSUInteger location;
 @end
 
 @implementation JHJAMLToken
 @synthesize type = _type;
 @synthesize info = _info;
+@synthesize location = _location;
 
 - (id)initWithType:(JHJAMLTokenType)type
 {
@@ -147,7 +149,7 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
         return NO;
     }
     
-    *length = [proposedNumber length] + 2 - startIndex;
+    *length = [proposedNumber length] + 1 - startIndex;
     return YES;
 }
 
@@ -166,25 +168,33 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
 @end
 
 @interface JHJAMLParser ()
+@property (readwrite, strong) JHMulticastDelegate* delegates;
 - (NSArray *)_tokenize:(NSString *)jamlText;
 - (NSArray *)_annotateTokens:(NSArray *)tokens;
 @end
 
 @implementation JHJAMLParser
 
-@synthesize delegate = _delegate;
+@synthesize delegates = _delegates;
 
 - (id)init
 {
     if ((self = [super init])) {
+        self.delegates = [[JHMulticastDelegate alloc] initWithProtocol:@protocol(JHJAMLParserDelegate)];
     }
     
     return self;
 }
 
+- (void)dealloc
+{
+    self.delegates = nil;
+}
+
 - (NSArray *)_tokenize:(NSString *)jamlText
 {
     NSMutableArray* tokens = [[NSMutableArray alloc] init];
+    NSUInteger totalLength = 0;
     for (NSString* line in [jamlText componentsSeparatedByString:@"\n"]) {
         NSMutableString* text = [[NSMutableString alloc] init];
         NSUInteger length = [line length];
@@ -192,10 +202,12 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
         NSUInteger c = 0;
         NSUInteger orderedListNumberLength = 0;
         BOOL isHeader = NO;
+        __block NSUInteger textTokenStart = 0;
         void (^submitTextToken)(void) = ^{
             if ([text length] > 0) {
                 JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHTextToken];
-                token.info = [NSDictionary dictionaryWithObject:[text copy] forKey:JHText];
+                token.location = textTokenStart;
+                token.info = [NSDictionary dictionaryWithObjectsAndKeys:[text copy], JHText, nil];
                 [tokens addObject:token];
                 [text setString:@""];
             }
@@ -242,28 +254,42 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
             
             JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHHeaderBeginToken];
             token.info = [NSDictionary dictionaryWithObject:[NSNumber numberWithInt:headerStrength] forKey:JHHeaderStrength];
+            token.location = totalLength + (c - headerStrength);
             [tokens addObject:token];
             isHeader = YES;
         }
         else if (lineString[c] == '*') {
-            [tokens addObject:[[JHJAMLToken alloc] initWithType:JHUnorderedListToken]];
+            JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHUnorderedListToken];
+            NSRange range = NSMakeRange(totalLength + c, 1);
+            token.info = [NSDictionary dictionaryWithObject:[NSValue valueWithRange:range] forKey:JHElementRange];
+            [tokens addObject:token];
             c += 1;
         }
         else if (StartsWithOrderedList(line, c, &orderedListNumberLength)) {
-            [tokens addObject:[[JHJAMLToken alloc] initWithType:JHOrderedListToken]];
-            c += orderedListNumberLength - 1;
+            JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHOrderedListToken];
+            NSRange range = NSMakeRange(totalLength + c, orderedListNumberLength);
+            token.info = [NSDictionary dictionaryWithObject:[NSValue valueWithRange:range] forKey:JHElementRange];
+            [tokens addObject:token];
+            c += orderedListNumberLength;
         }
         
         for (; c < length; ++c) {
             switch (lineString[c]) {
-                case '_':
+                case '_': {
                     submitTextToken();
-                    [tokens addObject:[[JHJAMLToken alloc] initWithType:JHEmphasizeToken]];
+                    JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHEmphasizeToken];
+                    token.location = totalLength + c;
+                    [tokens addObject:token];
                     continue;
-                case '~':
+                }
+                case '~': {
                     submitTextToken();
-                    [tokens addObject:[[JHJAMLToken alloc] initWithType:JHStrongToken]];
+                    JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHStrongToken];
+                    token.location = totalLength + c;
+                    [tokens addObject:token];
                     continue;
+                }
+                    
                 case '`': {
                     NSUInteger start = c + 1;
                     NSUInteger offset = 0;
@@ -275,7 +301,8 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
                         submitTextToken();
                         NSString* inlineCodeContents = [line substringWithRange:NSMakeRange(start, offset)];
                         JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHInlineCodeToken];
-                        token.info = [NSDictionary dictionaryWithObject:inlineCodeContents forKey:JHInlineCode];
+                        NSRange range = NSMakeRange(totalLength + start - 1, offset + 2);
+                        token.info = [NSDictionary dictionaryWithObjectsAndKeys:inlineCodeContents, JHInlineCode, [NSValue valueWithRange:range], JHElementRange, nil];
                         [tokens addObject:token];
                         c += offset + 1;
                         continue;
@@ -309,24 +336,35 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
                     NSString* name = [startLink substringWithRange:nameRange];
                     NSString* url  = [startLink substringWithRange:urlRange];
                     JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHLinkToken];
-                    token.info = [NSDictionary dictionaryWithObjectsAndKeys:name, JHLinkName, url, JHLinkURL, nil];
+                    token.info = [NSDictionary dictionaryWithObjectsAndKeys:
+                        name, JHLinkName,
+                        url, JHLinkURL,
+                        [NSValue valueWithRange:NSMakeRange(totalLength + c, range.length)], JHElementRange,
+                        nil
+                    ];
                     [tokens addObject:token];
-                    c += range.length;
-                    break;
+                    c += range.length - 1;
+                    continue;
                 }
+            }
+            
+            if ([text length] == 0) {
+                textTokenStart = totalLength + c;
             }
             
             [text appendFormat:@"%c", lineString[c]];
         }
-        
+        ;
     END_OF_LINE:
         submitTextToken();
         if (isHeader) {
             JHJAMLToken* token = [[JHJAMLToken alloc] initWithType:JHHeaderEndToken];
-            token.info = [NSDictionary dictionaryWithObject:[NSNumber numberWithInt:headerStrength] forKey:JHHeaderStrength];
+            token.location = totalLength + c;
+            token.info = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:headerStrength], JHHeaderStrength, nil];
             [tokens addObject:token];
         }
         [tokens addObject:[[JHJAMLToken alloc] initWithType:JHNewLineToken]];
+        totalLength += [line length] + 1; // extra 1 to account for new line
     }
     
     return tokens;
@@ -497,19 +535,21 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
     NSMutableArray* symbolStack = [[NSMutableArray alloc] init]; 
     for (JHJAMLToken* token in tokens) {
         switch (token.type) {
-            case JHTextToken:
-                [self.delegate processText:[token.info objectForKey:JHText]];
+            case JHTextToken: {
+                [self.delegates processText:[token.info objectForKey:JHText] startLocation:token.location];
                 break;
+            }
                 
             case JHStrongToken:
             case JHEmphasizeToken: {
-                if ([symbolStack count] && [[symbolStack lastObject] unsignedIntegerValue] == token.type) {
-                    [self.delegate didEndElement:token.type info:nil];
+                NSDictionary* infoDict = [NSDictionary dictionaryWithObject:[NSNumber numberWithUnsignedInteger:token.location] forKey:JHElementLocation];
+                if ([symbolStack count] && [(JHJAMLToken *)[symbolStack lastObject] type] == token.type) {
+                    [self.delegates didEndElement:token.type info:infoDict];
                     [symbolStack removeLastObject];
                 }
                 else {
-                    [symbolStack addObject:[NSNumber numberWithUnsignedInteger:token.type]];
-                    [self.delegate didBeginElement:token.type info:nil];
+                    [symbolStack addObject:token];
+                    [self.delegates didBeginElement:token.type info:infoDict];
                 }
                 break;
             }
@@ -528,73 +568,75 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
                     }
                 }
                 
-                [self.delegate didBeginElement:JHInlineCodeElement info:nil];
-                [self.delegate processText:mutableInlineCode];
-                [self.delegate didEndElement:JHInlineCodeElement info:nil];
+                NSDictionary* info = [NSDictionary dictionaryWithObject:[token.info objectForKey:JHElementRange] forKey:JHElementRange];
+                [self.delegates didParseInlineCode:inlineCode info:info];
                 break;
             }
                 
             case JHParagraphBeginToken:
-                [self.delegate didBeginElement:JHParagraphElement info:nil];
+                [self.delegates didBeginElement:JHParagraphElement info:nil];
                 break;
                 
             case JHParagraphEndToken:
-                [self.delegate didEndElement:JHParagraphElement info:nil];
+                [self.delegates didEndElement:JHParagraphElement info:nil];
                 break;
                 
             case JHOrderedListBeginToken:
-                [self.delegate didBeginElement:JHOrderedListElement info:nil];
+                [self.delegates didBeginElement:JHOrderedListElement info:nil];
                 break;
                 
             case JHOrderedListEndToken:
-                [self.delegate didEndElement:JHOrderedListElement info:nil];
+                [self.delegates didEndElement:JHOrderedListElement info:nil];
                 break;
                 
             case JHUnorderedListBeginToken:
-                [self.delegate didBeginElement:JHUnorderedListElement info:nil];
+                [self.delegates didBeginElement:JHUnorderedListElement info:nil];
                 break;
                 
             case JHUnorderedListEndToken:
-                [self.delegate didEndElement:JHUnorderedListElement info:nil];
+                [self.delegates didEndElement:JHUnorderedListElement info:nil];
                 break;
                 
             case JHOrderedListToken:
             case JHUnorderedListToken: {
                 JHJAMLTokenType previousToken = [(JHJAMLToken *)[tokens objectAtIndex:(tokenIndex - 1)] type];
                 if (previousToken != JHOrderedListBeginToken && previousToken != JHUnorderedListBeginToken) {
-                    [self.delegate didEndElement:JHListItemElement info:nil];
+                    [self.delegates didEndElement:JHListItemElement info:nil];
                 }
                 
-                [self.delegate didBeginElement:JHListItemElement info:nil];
+                [self.delegates didBeginElement:JHListItemElement info:token.info];
                 break;
             }
                 
             case JHHeaderBeginToken: {
                 NSNumber* strength = [token.info objectForKey:JHHeaderStrength];
-                [self.delegate didBeginElement:JHHeaderElement info:[NSDictionary dictionaryWithObject:strength forKey:JHHeaderStrength]];
+                NSNumber* location = [NSNumber numberWithUnsignedInteger:token.location];
+                NSDictionary* infoDict = [NSDictionary dictionaryWithObjectsAndKeys:strength, JHHeaderStrength, location, JHElementLocation, nil];
+                [self.delegates didBeginElement:JHHeaderElement info:infoDict];
                 break;
             }
                 
             case JHHeaderEndToken: {
                 NSNumber* strength = [token.info objectForKey:JHHeaderStrength];
-                [self.delegate didEndElement:JHHeaderElement info:[NSDictionary dictionaryWithObject:strength forKey:JHHeaderStrength]];
+                NSNumber* location = [NSNumber numberWithUnsignedInteger:token.location];
+                NSDictionary* infoDict = [NSDictionary dictionaryWithObjectsAndKeys:strength, JHHeaderStrength, location, JHElementLocation, nil];
+                [self.delegates didEndElement:JHHeaderElement info:infoDict];
                 break;
             }
                 
             case JHHorizontalRuleToken:
-                [self.delegate didParseHorizontalRule];
+                [self.delegates didParseHorizontalRule];
                 break;
                 
             case JHHardlineBreakToken:
-                [self.delegate didBeginElement:JHHardlineBreakElement info:nil];
+                [self.delegates didBeginElement:JHHardlineBreakElement info:nil];
                 break;
                 
             case JHLinkToken: {
                 NSString* url = [token.info objectForKey:JHLinkURL];
                 NSString* name = [token.info objectForKey:JHLinkName];
-                [self.delegate didBeginElement:JHLinkElement info:[NSDictionary dictionaryWithObject:url forKey:JHLinkURL]];
-                [self.delegate processText:name];
-                [self.delegate didEndElement:JHLinkElement info:nil];
+                NSDictionary* infoDict = [NSDictionary dictionaryWithObject:[token.info objectForKey:JHElementRange] forKey:JHElementRange];
+                [self.delegates didParseLinkWithURL:url name:name info:infoDict];
                 break;
             }
         }
@@ -607,4 +649,5 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
         //}
     }
 }
+
 @end

@@ -53,7 +53,7 @@ int main (int argc, const char * argv[])
         
         JHJAMLHTMLDelegate* delegate = [[JHJAMLHTMLDelegate alloc] init];
         JHJAMLParser* parser = [[JHJAMLParser alloc] init];
-        parser.delegate = delegate;
+        [parser.delegates addDelegate:delegate];
         
         uint64_t start = mach_absolute_time();
         [parser parseJAML:file];

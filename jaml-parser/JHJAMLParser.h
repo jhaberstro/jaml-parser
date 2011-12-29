@@ -18,7 +18,7 @@
 //
 
 #import <Foundation/Foundation.h>
-
+#import "JHMulticastDelegate.h"
 
 enum {
     JHNullElement = 0,
@@ -35,23 +35,27 @@ enum {
 };
 typedef NSUInteger JHElement;
 
-#define JHHeaderStrength @"JHHeaderStrength"
-#define JHLinkURL        @"JHLinkURL"
-#define JHListIndent     @"JHListIndent"
+#define JHHeaderStrength    @"JHHeaderStrength"
+#define JHLinkURL           @"JHLinkURL"
+#define JHListIndent        @"JHListIndent"
+#define JHElementRange      @"JHElementRange"
+#define JHElementLocation   @"JHElementLocation"
 
 @protocol JHJAMLParserDelegate <NSObject>
 
 - (void)didParseHorizontalRule;
+- (void)didParseLinkWithURL:(NSString *)url name:(NSString *)name info:(NSDictionary *)info;
+- (void)didParseInlineCode:(NSString *)inlineCode info:(NSDictionary *)info;
 - (void)didBeginElement:(JHElement)element info:(NSDictionary *)info;
-- (void)processText:(NSString *)text;
+- (void)processText:(NSString *)text startLocation:(NSUInteger)locationIndex;
 - (void)didEndElement:(JHElement)element info:(NSDictionary *)info;
 
 @end
 
 @interface JHJAMLParser : NSObject
 
-- (void)parseJAML:(NSString *)markdownText;
+@property (readonly, strong) JHMulticastDelegate< JHJAMLParserDelegate >* delegates;
 
-@property (weak) id< JHJAMLParserDelegate > delegate;
+- (void)parseJAML:(NSString *)markdownText;
 
 @end

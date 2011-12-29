@@ -11,9 +11,11 @@
 
 @interface JHJAMLHTMLDelegate : NSObject< JHJAMLParserDelegate >
 
-- (void)didBeginElement:(JHElement)element info:(NSDictionary *)info;
-- (void)processText:(NSString *)text;
 - (void)didParseHorizontalRule;
+- (void)didParseLinkWithURL:(NSString *)url name:(NSString *)name info:(NSDictionary *)info;
+- (void)didParseInlineCode:(NSString *)inlineCode info:(NSDictionary *)info;
+- (void)didBeginElement:(JHElement)element info:(NSDictionary *)info;
+- (void)processText:(NSString *)text startLocation:(NSUInteger)locationIndex;
 - (void)didEndElement:(JHElement)element info:(NSDictionary *)info;
 
 @property (readonly) NSString *html;

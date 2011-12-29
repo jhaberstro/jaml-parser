@@ -31,6 +31,16 @@
     return [self.htmlString copy];
 }
 
+- (void)didParseLinkWithURL:(NSString *)url name:(NSString *)name info:(NSDictionary *)info
+{
+    [self.htmlString appendFormat:@"<a href=\"%@\">%@</a>", url, name, nil];
+}
+
+- (void)didParseInlineCode:(NSString *)inlineCode info:(NSDictionary *)info
+{
+    [self.htmlString appendFormat:@"<code>%@</code>", inlineCode, nil];
+}
+
 - (void)didBeginElement:(JHElement)element info:(NSDictionary *)info
 {
     switch (element) {
@@ -60,17 +70,6 @@
             break;
         }
             
-        case JHInlineCodeElement: {
-            [self.htmlString appendString:@"<code>"];
-            break;
-        }
-            
-        case JHLinkElement: {
-            NSString* url = [info objectForKey:JHLinkURL];
-            [self.htmlString appendFormat:@"<a href=\"%@\">", url, nil];
-            break;
-        }
-            
         case JHHardlineBreakElement: {
             [self.htmlString appendString:@"<br />"];
             break;
@@ -91,7 +90,7 @@
     }
 }
 
-- (void)processText:(NSString *)text
+- (void)processText:(NSString *)text startLocation:(NSUInteger)locationIndex
 {
     [self.htmlString appendString:text];
 }
@@ -122,16 +121,6 @@
             
         case JHHeaderElement: {
             [self.htmlString appendFormat:@"</h%i>", [[info objectForKey:JHHeaderStrength] intValue], nil];
-            break;
-        }
-            
-        case JHInlineCodeElement: {
-            [self.htmlString appendFormat:@"</code>"];
-            break;
-        }
-            
-        case JHLinkElement: {
-            [self.htmlString appendString:@"</a>"];
             break;
         }
             
