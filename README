@@ -1,0 +1,11 @@
+Author: Jedd Haberstro
+
+Description: JAML (Just Another Markup Language or Jedd's Awesome Markup Language :P) is a markup language very similar to Markdown but with a syntax I find a bit nicer to write. I wouldn't recommend any one use this parser and it's probably only 90% working (there are edge cases where indentation of bullets don't work quite right). The syntax is as follows:
+    _emphasize_
+    ~strong~
+    ("link" www.google.com)
+    headers are the same as markdown
+    @ denotes an ordered list
+    * denotes an unordered list
+    --- (or more) denotes a horizontal rule
+    `inline code`
