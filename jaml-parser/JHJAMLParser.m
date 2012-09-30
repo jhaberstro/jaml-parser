@@ -170,7 +170,7 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
 @end
 
 @interface JHJAMLParser ()
-@property (readwrite, strong) JHMulticastDelegate* delegates;
+@property (readwrite, strong) JHMulticastDelegate< JHJAMLParserDelegate >* delegates;
 - (NSArray *)_tokenize:(NSString *)jamlText;
 - (NSArray *)_annotateTokens:(NSArray *)tokens;
 @end
@@ -191,6 +191,7 @@ static BOOL StartsWithOrderedList(NSString* line, NSUInteger startIndex, NSUInte
 - (void)dealloc
 {
     self.delegates = nil;
+    //[super dealloc];
 }
 
 - (NSArray *)_tokenize:(NSString *)jamlText

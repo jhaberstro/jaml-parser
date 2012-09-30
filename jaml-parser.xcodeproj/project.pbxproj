@@ -133,7 +133,7 @@
 		C7628E601492EB7000DD3C34 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0440;
 				ORGANIZATIONNAME = Student;
 			};
 			buildConfigurationList = C7628E631492EB7000DD3C34 /* Build configuration list for PBXProject "jaml-parser" */;
