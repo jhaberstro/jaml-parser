@@ -14,6 +14,14 @@
 		C7628E7F1492EBB100DD3C34 /* JHJAMLParser.m in Sources */ = {isa = PBXBuildFile; fileRef = C7628E7C1492EBB100DD3C34 /* JHJAMLParser.m */; };
 		C7628E801492EBB100DD3C34 /* JHJAMLHTMLDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = C7628E7E1492EBB100DD3C34 /* JHJAMLHTMLDelegate.m */; };
 		C7628E821492EBE400DD3C34 /* sample.jaml in CopyFiles */ = {isa = PBXBuildFile; fileRef = C7628E811492EBBC00DD3C34 /* sample.jaml */; };
+		C7E49AD11624FF7900C01B83 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C7E49ABB1624FF2300C01B83 /* Cocoa.framework */; };
+		C7E49AD71624FF7900C01B83 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = C7E49AD51624FF7900C01B83 /* InfoPlist.strings */; };
+		C7E49ADF1624FFB300C01B83 /* JHJAMLParser.m in Sources */ = {isa = PBXBuildFile; fileRef = C7628E7C1492EBB100DD3C34 /* JHJAMLParser.m */; };
+		C7E49AE01624FFB300C01B83 /* JHJAMLHTMLDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = C7628E7E1492EBB100DD3C34 /* JHJAMLHTMLDelegate.m */; };
+		C7E49AE11624FFB300C01B83 /* JHMulticastDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = C72DE14B14A007C100E505D5 /* JHMulticastDelegate.m */; };
+		C7E49AE21624FFC400C01B83 /* JHJAMLParser.h in Headers */ = {isa = PBXBuildFile; fileRef = C7628E7B1492EBB100DD3C34 /* JHJAMLParser.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C7E49AE31624FFC400C01B83 /* JHJAMLHTMLDelegate.h in Headers */ = {isa = PBXBuildFile; fileRef = C7628E7D1492EBB100DD3C34 /* JHJAMLHTMLDelegate.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C7E49AE41624FFC400C01B83 /* JHMulticastDelegate.h in Headers */ = {isa = PBXBuildFile; fileRef = C72DE14A14A007C100E505D5 /* JHMulticastDelegate.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -43,6 +51,14 @@
 		C7628E7D1492EBB100DD3C34 /* JHJAMLHTMLDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JHJAMLHTMLDelegate.h; sourceTree = "<group>"; };
 		C7628E7E1492EBB100DD3C34 /* JHJAMLHTMLDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = JHJAMLHTMLDelegate.m; sourceTree = "<group>"; };
 		C7628E811492EBBC00DD3C34 /* sample.jaml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sample.jaml; sourceTree = "<group>"; };
+		C7E49ABB1624FF2300C01B83 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		C7E49ABE1624FF2300C01B83 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		C7E49ABF1624FF2300C01B83 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
+		C7E49AC01624FF2300C01B83 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		C7E49AD01624FF7900C01B83 /* JAMLParser.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = JAMLParser.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		C7E49AD41624FF7900C01B83 /* JAMLParser-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "JAMLParser-Info.plist"; sourceTree = "<group>"; };
+		C7E49AD61624FF7900C01B83 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		C7E49AD81624FF7900C01B83 /* JAMLParser-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "JAMLParser-Prefix.pch"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -54,6 +70,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C7E49ACC1624FF7900C01B83 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C7E49AD11624FF7900C01B83 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -61,6 +85,7 @@
 			isa = PBXGroup;
 			children = (
 				C7628E6F1492EB7000DD3C34 /* jaml-parser */,
+				C7E49AD21624FF7900C01B83 /* JAMLParser */,
 				C7628E6C1492EB7000DD3C34 /* Frameworks */,
 				C7628E6A1492EB7000DD3C34 /* Products */,
 			);
@@ -70,6 +95,7 @@
 			isa = PBXGroup;
 			children = (
 				C7628E691492EB7000DD3C34 /* jaml-parser */,
+				C7E49AD01624FF7900C01B83 /* JAMLParser.framework */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -78,6 +104,8 @@
 			isa = PBXGroup;
 			children = (
 				C7628E6D1492EB7000DD3C34 /* Foundation.framework */,
+				C7E49ABB1624FF2300C01B83 /* Cocoa.framework */,
+				C7E49ABD1624FF2300C01B83 /* Other Frameworks */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -107,7 +135,48 @@
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
+		C7E49ABD1624FF2300C01B83 /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C7E49ABE1624FF2300C01B83 /* AppKit.framework */,
+				C7E49ABF1624FF2300C01B83 /* CoreData.framework */,
+				C7E49AC01624FF2300C01B83 /* Foundation.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		C7E49AD21624FF7900C01B83 /* JAMLParser */ = {
+			isa = PBXGroup;
+			children = (
+				C7E49AD31624FF7900C01B83 /* Supporting Files */,
+			);
+			path = JAMLParser;
+			sourceTree = "<group>";
+		};
+		C7E49AD31624FF7900C01B83 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				C7E49AD41624FF7900C01B83 /* JAMLParser-Info.plist */,
+				C7E49AD51624FF7900C01B83 /* InfoPlist.strings */,
+				C7E49AD81624FF7900C01B83 /* JAMLParser-Prefix.pch */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		C7E49ACD1624FF7900C01B83 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C7E49AE21624FFC400C01B83 /* JHJAMLParser.h in Headers */,
+				C7E49AE31624FFC400C01B83 /* JHJAMLHTMLDelegate.h in Headers */,
+				C7E49AE41624FFC400C01B83 /* JHMulticastDelegate.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
 		C7628E681492EB7000DD3C34 /* jaml-parser */ = {
@@ -126,6 +195,24 @@
 			productName = "jaml-parser";
 			productReference = C7628E691492EB7000DD3C34 /* jaml-parser */;
 			productType = "com.apple.product-type.tool";
+		};
+		C7E49ACF1624FF7900C01B83 /* JAMLParser */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C7E49ADC1624FF7900C01B83 /* Build configuration list for PBXNativeTarget "JAMLParser" */;
+			buildPhases = (
+				C7E49ACB1624FF7900C01B83 /* Sources */,
+				C7E49ACC1624FF7900C01B83 /* Frameworks */,
+				C7E49ACD1624FF7900C01B83 /* Headers */,
+				C7E49ACE1624FF7900C01B83 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = JAMLParser;
+			productName = JAMLParser;
+			productReference = C7E49AD01624FF7900C01B83 /* JAMLParser.framework */;
+			productType = "com.apple.product-type.framework";
 		};
 /* End PBXNativeTarget section */
 
@@ -149,9 +236,21 @@
 			projectRoot = "";
 			targets = (
 				C7628E681492EB7000DD3C34 /* jaml-parser */,
+				C7E49ACF1624FF7900C01B83 /* JAMLParser */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C7E49ACE1624FF7900C01B83 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C7E49AD71624FF7900C01B83 /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		C7628E651492EB7000DD3C34 /* Sources */ = {
@@ -165,7 +264,28 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C7E49ACB1624FF7900C01B83 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C7E49ADF1624FFB300C01B83 /* JHJAMLParser.m in Sources */,
+				C7E49AE01624FFB300C01B83 /* JHJAMLHTMLDelegate.m in Sources */,
+				C7E49AE11624FFB300C01B83 /* JHMulticastDelegate.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		C7E49AD51624FF7900C01B83 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				C7E49AD61624FF7900C01B83 /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		C7628E761492EB7000DD3C34 /* Debug */ = {
@@ -233,6 +353,44 @@
 			};
 			name = Release;
 		};
+		C7E49ADD1624FF7900C01B83 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_VERSION = A;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "JAMLParser/JAMLParser-Prefix.pch";
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				INFOPLIST_FILE = "JAMLParser/JAMLParser-Info.plist";
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Debug;
+		};
+		C7E49ADE1624FF7900C01B83 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_VERSION = A;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "JAMLParser/JAMLParser-Prefix.pch";
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				INFOPLIST_FILE = "JAMLParser/JAMLParser-Info.plist";
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -253,6 +411,14 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
+		};
+		C7E49ADC1624FF7900C01B83 /* Build configuration list for PBXNativeTarget "JAMLParser" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C7E49ADD1624FF7900C01B83 /* Debug */,
+				C7E49ADE1624FF7900C01B83 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
 		};
 /* End XCConfigurationList section */
 	};
